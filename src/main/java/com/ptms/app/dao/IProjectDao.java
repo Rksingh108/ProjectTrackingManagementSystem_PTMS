@@ -1,21 +1,30 @@
 package com.ptms.app.dao;
 
-import com.ptms.app.model.Project;
-import com.ptms.app.util.DatabaseConnection;
-
+import com.ptms.app.model.Projects;
+import com.ptms.app.util.DataBaseConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProjectDAOImpl implements ProjectDAO {
+public class IProjectDao implements ProjectDao {
+
+    private final String insertProject = "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, " +
+            "domain, cost, start_date, deadline, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private final String findProjectById = "SELECT * FROM projects WHERE id = ?";
+    private final String projectStatus = "SELECT * FROM projects WHERE status = ? ORDER BY id";
+    private final String searchById = "SELECT * FROM projects WHERE name LIKE ? ORDER BY id";
+    private final String updateProject = "UPDATE projects SET name = ?, requirements = ?, client_id = ?, domain = ?, " +
+            "cost = ?, start_date = ?, deadline = ?, priority = ?, status = ? WHERE id = ?";
+
+    private final String projectTeamLead = "UPDATE projects SET team_lead_id = ? WHERE id = ?";
+    private final String projectUpdateStatus = "UPDATE projects SET status = ? WHERE id = ?";
+    private final String deleteProject = "DELETE FROM projects WHERE id = ?";
 
     @Override
-    public int insert(Project project) throws SQLException {
-        String sql = "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, " +
-                "domain, cost, start_date, deadline, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    public int insert(Projects project) throws SQLException {
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(insertProject, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, project.getName());
             ps.setString(2, project.getRequirements());
@@ -41,10 +50,10 @@ public class ProjectDAOImpl implements ProjectDAO {
     }
 
     @Override
-    public Project findById(int id) throws SQLException {
-        String sql = "SELECT * FROM projects WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+    public Projects findById(int id) throws SQLException {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findProjectById)) {
 
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -54,32 +63,32 @@ public class ProjectDAOImpl implements ProjectDAO {
     }
 
     @Override
-    public List<Project> findAll() throws SQLException {
+    public List<Projects> findAll() throws SQLException {
         return runListQuery("SELECT * FROM projects ORDER BY id", null);
     }
 
     @Override
-    public List<Project> findByManager(int managerId) throws SQLException {
+    public List<Projects> findByManager(int managerId) throws SQLException {
         return runListQuery("SELECT * FROM projects WHERE manager_id = ? ORDER BY id", managerId);
     }
 
     @Override
-    public List<Project> findByTeamLead(int teamLeadId) throws SQLException {
+    public List<Projects> findByTeamLead(int teamLeadId) throws SQLException {
         return runListQuery("SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id", teamLeadId);
     }
 
     @Override
-    public List<Project> findByClient(int clientId) throws SQLException {
+    public List<Projects> findByClient(int clientId) throws SQLException {
         return runListQuery("SELECT * FROM projects WHERE client_id = ? ORDER BY id", clientId);
     }
 
     @Override
-    public List<Project> findByStatus(String status) throws SQLException {
-        String sql = "SELECT * FROM projects WHERE status = ? ORDER BY id";
-        List<Project> projects = new ArrayList<>();
+    public List<Projects> findByStatus(String status) throws SQLException {
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        List<Projects> projects = new ArrayList<>();
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(projectStatus)) {
 
             ps.setString(1, status);
             try (ResultSet rs = ps.executeQuery()) {
@@ -92,12 +101,12 @@ public class ProjectDAOImpl implements ProjectDAO {
     }
 
     @Override
-    public List<Project> searchByName(String keyword) throws SQLException {
-        String sql = "SELECT * FROM projects WHERE name LIKE ? ORDER BY id";
-        List<Project> projects = new ArrayList<>();
+    public List<Projects> searchByName(String keyword) throws SQLException {
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        List<Projects> projects = new ArrayList<>();
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(searchById)) {
 
             ps.setString(1, "%" + keyword + "%");
             try (ResultSet rs = ps.executeQuery()) {
@@ -110,12 +119,10 @@ public class ProjectDAOImpl implements ProjectDAO {
     }
 
     @Override
-    public boolean update(Project project) throws SQLException {
-        String sql = "UPDATE projects SET name = ?, requirements = ?, client_id = ?, domain = ?, " +
-                "cost = ?, start_date = ?, deadline = ?, priority = ?, status = ? WHERE id = ?";
+    public boolean update(Projects project) throws SQLException {
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(updateProject)) {
 
             ps.setString(1, project.getName());
             ps.setString(2, project.getRequirements());
@@ -134,9 +141,9 @@ public class ProjectDAOImpl implements ProjectDAO {
 
     @Override
     public boolean assignTeamLead(int projectId, int teamLeadId) throws SQLException {
-        String sql = "UPDATE projects SET team_lead_id = ? WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(projectTeamLead)) {
 
             ps.setInt(1, teamLeadId);
             ps.setInt(2, projectId);
@@ -146,9 +153,9 @@ public class ProjectDAOImpl implements ProjectDAO {
 
     @Override
     public boolean updateStatus(int projectId, String status) throws SQLException {
-        String sql = "UPDATE projects SET status = ? WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(projectUpdateStatus)) {
 
             ps.setString(1, status);
             ps.setInt(2, projectId);
@@ -158,18 +165,18 @@ public class ProjectDAOImpl implements ProjectDAO {
 
     @Override
     public boolean delete(int id) throws SQLException {
-        String sql = "DELETE FROM projects WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(deleteProject)) {
 
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         }
     }
 
-    private List<Project> runListQuery(String sql, Integer param) throws SQLException {
-        List<Project> projects = new ArrayList<>();
-        try (Connection conn = DatabaseConnection.getConnection();
+    private List<Projects> runListQuery(String sql, Integer param) throws SQLException {
+        List<Projects> projects = new ArrayList<>();
+        try (Connection conn = DataBaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             if (param != null) {
@@ -192,7 +199,7 @@ public class ProjectDAOImpl implements ProjectDAO {
         }
     }
 
-    private Project mapRow(ResultSet rs) throws SQLException {
+    private Projects mapRow(ResultSet rs) throws SQLException {
         Date startDate = rs.getDate("start_date");
         Date deadline = rs.getDate("deadline");
 
@@ -202,7 +209,7 @@ public class ProjectDAOImpl implements ProjectDAO {
         int clientIdRaw = rs.getInt("client_id");
         Integer clientId = rs.wasNull() ? null : clientIdRaw;
 
-        return new Project(
+        return new Projects(
                 rs.getInt("id"),
                 rs.getString("name"),
                 rs.getString("requirements"),

@@ -1,21 +1,25 @@
 package com.ptms.app.dao;
 
 import com.ptms.app.model.TicketTracking;
-import com.ptms.app.util.DatabaseConnection;
+import com.ptms.app.util.DataBaseConnection;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TicketTrackingDAOImpl implements TicketTrackingDAO {
+public class ITicketTrackingDao implements TicketTrackingDao {
+    private final String insertTicket = "INSERT INTO ticket_tracking (ticket_id, status, progress, comment, updated_by) " +
+            "VALUES (?, ?, ?, ?, ?)";
+    private final String findTicketById = "SELECT * FROM ticket_tracking WHERE id = ?";
+    private final String findByTicket = "SELECT * FROM ticket_tracking WHERE ticket_id = ? ORDER BY updated_at ASC, id ASC";
+    private final String latestTicket = "SELECT * FROM ticket_tracking WHERE ticket_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1";
+    private final String ticketupdatedBy = "SELECT * FROM ticket_tracking WHERE updated_by = ? ORDER BY updated_at DESC";
 
     @Override
     public int insert(TicketTracking tracking) throws SQLException {
-        String sql = "INSERT INTO ticket_tracking (ticket_id, status, progress, comment, updated_by) " +
-                "VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(insertTicket, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setInt(1, tracking.getTicketId());
             ps.setString(2, tracking.getStatus());
@@ -40,9 +44,9 @@ public class TicketTrackingDAOImpl implements TicketTrackingDAO {
 
     @Override
     public TicketTracking findById(int id) throws SQLException {
-        String sql = "SELECT * FROM ticket_tracking WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findTicketById)) {
 
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -53,11 +57,11 @@ public class TicketTrackingDAOImpl implements TicketTrackingDAO {
 
     @Override
     public List<TicketTracking> findByTicket(int ticketId) throws SQLException {
-        String sql = "SELECT * FROM ticket_tracking WHERE ticket_id = ? ORDER BY updated_at ASC, id ASC";
+
         List<TicketTracking> history = new ArrayList<>();
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findByTicket)) {
 
             ps.setInt(1, ticketId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -71,10 +75,9 @@ public class TicketTrackingDAOImpl implements TicketTrackingDAO {
 
     @Override
     public TicketTracking findLatestByTicket(int ticketId) throws SQLException {
-        String sql = "SELECT * FROM ticket_tracking WHERE ticket_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(latestTicket)) {
 
             ps.setInt(1, ticketId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -85,11 +88,11 @@ public class TicketTrackingDAOImpl implements TicketTrackingDAO {
 
     @Override
     public List<TicketTracking> findByUpdatedBy(int userId) throws SQLException {
-        String sql = "SELECT * FROM ticket_tracking WHERE updated_by = ? ORDER BY updated_at DESC";
+
         List<TicketTracking> history = new ArrayList<>();
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(ticketupdatedBy)) {
 
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {

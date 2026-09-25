@@ -1,20 +1,26 @@
 package com.ptms.app.dao;
 
 import com.ptms.app.model.Client;
-import com.ptms.app.util.DatabaseConnection;
+import com.ptms.app.util.DataBaseConnection;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ClientDAOImpl implements ClientDAO {
+public class IClientDao implements ClientDao {
+    private final String insertClient = "INSERT INTO clients (name, email, phone, company_name) VALUES (?, ?, ?, ?)";
+    private final String findByClientId = "SELECT * FROM clients WHERE id = ?";
+    private final String findAllClientById = "SELECT * FROM clients ORDER BY id";
+    private final String searchClientByName = "SELECT * FROM clients WHERE name LIKE ? OR company_name LIKE ? ORDER BY id";
+    private final String updateClient = "UPDATE clients SET name = ?, email = ?, phone = ?, company_name = ? WHERE id = ?";
+    private final String deleteClient = "DELETE FROM clients WHERE id = ?";
+
 
     @Override
     public int insert(Client client) throws SQLException {
-        String sql = "INSERT INTO clients (name, email, phone, company_name) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(insertClient, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, client.getName());
             ps.setString(2, client.getEmail());
@@ -34,9 +40,9 @@ public class ClientDAOImpl implements ClientDAO {
 
     @Override
     public Client findById(int id) throws SQLException {
-        String sql = "SELECT * FROM clients WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findByClientId)) {
 
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -47,11 +53,9 @@ public class ClientDAOImpl implements ClientDAO {
 
     @Override
     public List<Client> findAll() throws SQLException {
-        String sql = "SELECT * FROM clients ORDER BY id";
         List<Client> clients = new ArrayList<>();
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findAllClientById);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
@@ -63,12 +67,12 @@ public class ClientDAOImpl implements ClientDAO {
 
     @Override
     public List<Client> searchByName(String keyword) throws SQLException {
-        String sql = "SELECT * FROM clients WHERE name LIKE ? OR company_name LIKE ? ORDER BY id";
+
         List<Client> clients = new ArrayList<>();
         String pattern = "%" + keyword + "%";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(searchClientByName)) {
 
             ps.setString(1, pattern);
             ps.setString(2, pattern);
@@ -83,10 +87,10 @@ public class ClientDAOImpl implements ClientDAO {
 
     @Override
     public boolean update(Client client) throws SQLException {
-        String sql = "UPDATE clients SET name = ?, email = ?, phone = ?, company_name = ? WHERE id = ?";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(updateClient)) {
 
             ps.setString(1, client.getName());
             ps.setString(2, client.getEmail());
@@ -100,9 +104,9 @@ public class ClientDAOImpl implements ClientDAO {
 
     @Override
     public boolean delete(int id) throws SQLException {
-        String sql = "DELETE FROM clients WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(deleteClient)) {
 
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;

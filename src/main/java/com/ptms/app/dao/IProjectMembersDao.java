@@ -1,21 +1,29 @@
 package com.ptms.app.dao;
 
 import com.ptms.app.model.ProjectMember;
-import com.ptms.app.util.DatabaseConnection;
+import com.ptms.app.util.DataBaseConnection;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProjectMemberDAOImpl implements ProjectMemberDAO {
+public class IProjectMembersDao implements ProjectMembersDao {
+
+    private final String addProjectMember = "INSERT INTO project_members (project_id, user_id, joined_at, role_in_project) " +
+            "VALUES (?, ?, ?, ?)";
+    private final String removeProjectMember =  "DELETE FROM project_members WHERE project_id = ? AND user_id = ?";
+    private final String projectMember = "SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?";
+    private final String findProject = "SELECT * FROM project_members WHERE project_id = ?";
+    private final String findProjectUser = "SELECT * FROM project_members WHERE user_id = ?";
+    private final String updateProjectRole = "UPDATE project_members SET role_in_project = ? WHERE project_id = ? AND user_id = ?";
+
+
 
     @Override
     public boolean addMember(ProjectMember member) throws SQLException {
-        String sql = "INSERT INTO project_members (project_id, user_id, joined_at, role_in_project) " +
-                "VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(addProjectMember)) {
 
             ps.setInt(1, member.getProjectId());
             ps.setInt(2, member.getUserId());
@@ -28,9 +36,9 @@ public class ProjectMemberDAOImpl implements ProjectMemberDAO {
 
     @Override
     public boolean removeMember(int projectId, int userId) throws SQLException {
-        String sql = "DELETE FROM project_members WHERE project_id = ? AND user_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(removeProjectMember)) {
 
             ps.setInt(1, projectId);
             ps.setInt(2, userId);
@@ -40,9 +48,8 @@ public class ProjectMemberDAOImpl implements ProjectMemberDAO {
 
     @Override
     public boolean isMember(int projectId, int userId) throws SQLException {
-        String sql = "SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+       try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(projectMember)) {
 
             ps.setInt(1, projectId);
             ps.setInt(2, userId);
@@ -54,11 +61,11 @@ public class ProjectMemberDAOImpl implements ProjectMemberDAO {
 
     @Override
     public List<ProjectMember> findByProject(int projectId) throws SQLException {
-        String sql = "SELECT * FROM project_members WHERE project_id = ?";
+
         List<ProjectMember> members = new ArrayList<>();
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findProject)) {
 
             ps.setInt(1, projectId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -72,11 +79,11 @@ public class ProjectMemberDAOImpl implements ProjectMemberDAO {
 
     @Override
     public List<ProjectMember> findByUser(int userId) throws SQLException {
-        String sql = "SELECT * FROM project_members WHERE user_id = ?";
+
         List<ProjectMember> members = new ArrayList<>();
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findProjectUser)) {
 
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -90,9 +97,9 @@ public class ProjectMemberDAOImpl implements ProjectMemberDAO {
 
     @Override
     public boolean updateRole(int projectId, int userId, String roleInProject) throws SQLException {
-        String sql = "UPDATE project_members SET role_in_project = ? WHERE project_id = ? AND user_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(updateProjectRole)) {
 
             ps.setString(1, roleInProject);
             ps.setInt(2, projectId);

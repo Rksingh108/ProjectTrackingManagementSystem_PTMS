@@ -9,13 +9,13 @@ public interface ClientDao {
 
     int insert(Client client) throws SQLException;
 
+    boolean update(Client client) throws SQLException;
+
+    boolean delete(int id) throws SQLException;
+
     Client findById(int id) throws SQLException;
 
     List<Client> findAll() throws SQLException;
 
     List<Client> searchByName(String keyword) throws SQLException;
-
-    boolean update(Client client) throws SQLException;
-
-    boolean delete(int id) throws SQLException;
 }

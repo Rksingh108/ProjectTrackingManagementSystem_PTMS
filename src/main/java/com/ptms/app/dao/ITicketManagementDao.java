@@ -1,21 +1,26 @@
 package com.ptms.app.dao;
 
 import com.ptms.app.model.TicketManagement;
-import com.ptms.app.util.Connection;
-
+import com.ptms.app.util.DataBaseConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TicketManagementDAOImpl implements TicketManagementDAO {
+public class ITicketManagementDao implements TicketManagementDao {
+    private final String insertTicket = "INSERT INTO ticket_management (project_id, title, description, priority, " +
+            "deadline, assigned_to, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    private final String findTicket = "SELECT * FROM ticket_management WHERE id = ?";
+    private final String updateTicket = "UPDATE ticket_management SET title = ?, description = ?, priority = ?, " +
+            "deadline = ?, assigned_to = ?, status = ? WHERE id = ?";
+    private final String ticketStatus = "UPDATE ticket_management SET status = ? WHERE id = ?";
+    private final String deleteTicket = "DELETE FROM ticket_management WHERE id = ?";
+
 
     @Override
     public int insert(TicketManagement ticket) throws SQLException {
-        String sql = "INSERT INTO ticket_management (project_id, title, description, priority, " +
-                "deadline, assigned_to, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(insertTicket, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setInt(1, ticket.getProjectId());
             ps.setString(2, ticket.getTitle());
@@ -38,9 +43,9 @@ public class TicketManagementDAOImpl implements TicketManagementDAO {
 
     @Override
     public TicketManagement findById(int id) throws SQLException {
-        String sql = "SELECT * FROM ticket_management WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findTicket)) {
 
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -101,7 +106,7 @@ public class TicketManagementDAOImpl implements TicketManagementDAO {
         sql.append(" ORDER BY id");
 
         List<TicketManagement> tickets = new ArrayList<>();
-        try (Connection conn = DatabaseConnection.getConnection();
+        try (Connection conn = DataBaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
 
             for (int i = 0; i < params.size(); i++) {
@@ -118,11 +123,9 @@ public class TicketManagementDAOImpl implements TicketManagementDAO {
 
     @Override
     public boolean update(TicketManagement ticket) throws SQLException {
-        String sql = "UPDATE ticket_management SET title = ?, description = ?, priority = ?, " +
-                "deadline = ?, assigned_to = ?, status = ? WHERE id = ?";
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(updateTicket)) {
 
             ps.setString(1, ticket.getTitle());
             ps.setString(2, ticket.getDescription());
@@ -138,9 +141,9 @@ public class TicketManagementDAOImpl implements TicketManagementDAO {
 
     @Override
     public boolean updateStatus(int ticketId, String status) throws SQLException {
-        String sql = "UPDATE ticket_management SET status = ? WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(ticketStatus)) {
 
             ps.setString(1, status);
             ps.setInt(2, ticketId);
@@ -150,9 +153,9 @@ public class TicketManagementDAOImpl implements TicketManagementDAO {
 
     @Override
     public boolean delete(int id) throws SQLException {
-        String sql = "DELETE FROM ticket_management WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DataBaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(deleteTicket)) {
 
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
@@ -166,7 +169,7 @@ public class TicketManagementDAOImpl implements TicketManagementDAO {
 
     private List<TicketManagement> runQuery(String sql, ParamSetter setter) throws SQLException {
         List<TicketManagement> tickets = new ArrayList<>();
-        try (Connection conn = DatabaseConnection.getConnection();
+        try (Connection conn = DataBaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             setter.set(ps);
