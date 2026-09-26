@@ -9,13 +9,11 @@ public interface TicketTrackingDao {
 
     int insert(TicketTracking tracking) throws SQLException;
 
-    TicketTracking findById(int id) throws SQLException;
-
-    /** Full update history for a ticket, oldest first. */
-    List<TicketTracking> findByTicket(int ticketId) throws SQLException;
-
-    /** Most recent tracking record for a ticket (its current status/progress), or null if none exist. */
-    TicketTracking findLatestByTicket(int ticketId) throws SQLException;
+    TicketTracking findByTicketId(int ticketId) throws SQLException;
 
     List<TicketTracking> findByUpdatedBy(int userId) throws SQLException;
+
+    int update(TicketTracking tracking) throws SQLException;
+
+    int delete(int ticketId) throws SQLException;
 }

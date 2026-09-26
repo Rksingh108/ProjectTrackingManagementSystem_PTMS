@@ -1,51 +1,43 @@
 package com.ptms.app.model;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
- * Represents a row in the `project_members` table.
- * Junction/resolver table for the many-to-many relationship
- * between users and projects. Composite key: (projectId, userId).
+ * Maps directly to the `project_members` table — the junction table
+ * resolving the many-to-many between users and projects.
+ * Its primary key is the (projectId, userId) pair, not a single id column,
+ * so there's no separate `id` field here.
  */
 public class ProjectMember {
 
-    private int projectId;   // PK, FK -> projects.id
-    private int userId;      // PK, FK -> users.id
-    private LocalDate joinedAt;
+    private Integer projectId;       // PK, FK -> projects.id
+    private Integer userId;          // PK, FK -> users.id
     private String roleInProject;
+    private LocalDateTime joinedAt;
 
     public ProjectMember() {
     }
 
-    public ProjectMember(int projectId, int userId, LocalDate joinedAt, String roleInProject) {
+    public ProjectMember(Integer projectId, Integer userId, String roleInProject) {
         this.projectId = projectId;
         this.userId = userId;
-        this.joinedAt = joinedAt;
         this.roleInProject = roleInProject;
     }
 
-    public int getProjectId() {
+    public Integer getProjectId() {
         return projectId;
     }
 
-    public void setProjectId(int projectId) {
+    public void setProjectId(Integer projectId) {
         this.projectId = projectId;
     }
 
-    public int getUserId() {
+    public Integer getUserId() {
         return userId;
     }
 
-    public void setUserId(int userId) {
+    public void setUserId(Integer userId) {
         this.userId = userId;
-    }
-
-    public LocalDate getJoinedAt() {
-        return joinedAt;
-    }
-
-    public void setJoinedAt(LocalDate joinedAt) {
-        this.joinedAt = joinedAt;
     }
 
     public String getRoleInProject() {
@@ -56,12 +48,18 @@ public class ProjectMember {
         this.roleInProject = roleInProject;
     }
 
+    public LocalDateTime getJoinedAt() {
+        return joinedAt;
+    }
+
+    public void setJoinedAt(LocalDateTime joinedAt) {
+        this.joinedAt = joinedAt;
+    }
+
     @Override
     public String toString() {
-        return "ProjectMember{" +
-                "projectId=" + projectId +
+        return "ProjectMember{projectId=" + projectId +
                 ", userId=" + userId +
-                ", joinedAt=" + joinedAt +
                 ", roleInProject='" + roleInProject + '\'' +
                 '}';
     }

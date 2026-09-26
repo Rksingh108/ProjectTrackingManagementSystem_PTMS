@@ -3,19 +3,23 @@ package com.ptms.app.model;
 import java.time.LocalDate;
 
 /**
- * Represents a row in the `users` table.
- * Covers Admin, Project Manager, Team Lead, and Team Member —
- * distinguished by the roleName field.
+ * Maps directly to the `users` table.
+ * One class, one `role` field — covers Admin, Project Manager, Team Lead,
+ * and Team Member without needing separate subclasses.
  */
 public class User {
 
-    private int id;
+    public enum Role {
+        ADMIN, PROJECT_MANAGER, TEAM_LEAD, TEAM_MEMBER
+    }
+
+    private Integer id;              // null until saved (auto-increment in DB)
     private String firstName;
     private String lastName;
     private String username;
     private String email;
-    private String password;   // hashed, never stored/handled in plain text
-    private String roleName;   // e.g. ADMIN, PROJECT_MANAGER, TEAM_LEAD, TEAM_MEMBER
+    private String password;         // holds a hash, never plaintext
+    private Role role;
     private LocalDate dateOfBirth;
     private String mobileNumber;
     private String gender;
@@ -23,31 +27,23 @@ public class User {
     public User() {
     }
 
-    public User(int id, String firstName, String lastName, String username, String email,
-                String password, String roleName, LocalDate dateOfBirth, String mobileNumber, String gender) {
-        this.id = id;
+    public User(String firstName, String lastName, String username, String email,
+                String password, Role role) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.username = username;
         this.email = email;
         this.password = password;
-        this.roleName = roleName;
-        this.dateOfBirth = dateOfBirth;
-        this.mobileNumber = mobileNumber;
-        this.gender = gender;
+        this.role = role;
     }
 
-    // Constructor for creating a new user before an id is assigned by the DB
-    public User(String firstName, String lastName, String username, String email,
-                String password, String roleName, LocalDate dateOfBirth, String mobileNumber, String gender) {
-        this(0, firstName, lastName, username, email, password, roleName, dateOfBirth, mobileNumber, gender);
-    }
+    // --- getters and setters ---
 
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -91,12 +87,12 @@ public class User {
         this.password = password;
     }
 
-    public String getRoleName() {
-        return roleName;
+    public Role getRole() {
+        return role;
     }
 
-    public void setRoleName(String roleName) {
-        this.roleName = roleName;
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     public LocalDate getDateOfBirth() {
@@ -125,16 +121,16 @@ public class User {
 
     @Override
     public String toString() {
-        return "User{" +
-                "id=" + id +
-                ", firstName='" + firstName + '\'' +
-                ", lastName='" + lastName + '\'' +
+        return "User{id=" + id +
                 ", username='" + username + '\'' +
                 ", email='" + email + '\'' +
-                ", roleName='" + roleName + '\'' +
-                ", dateOfBirth=" + dateOfBirth +
-                ", mobileNumber='" + mobileNumber + '\'' +
-                ", gender='" + gender + '\'' +
+                ", role=" + role +
                 '}';
     }
 }
+
+
+
+
+
+

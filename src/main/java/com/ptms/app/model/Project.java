@@ -4,58 +4,43 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Represents a row in the `projects` table.
- * managerId and teamLeadId both reference users.id;
- * clientId references clients.id.
+ * Maps directly to the `projects` table.
+ * manager_id / team_lead_id / client_id are stored here just as the FK ids
+ * (Integer) rather than nested User/Client objects — keeps the DAO's
+ * mapRow() simple. If a screen needs the manager's name etc., the service
+ * layer joins that in, not this model.
  */
-public class Projects {
+public class Project {
 
-    private int id;
+    private Integer id;              // null until saved (auto-increment in DB)
     private String name;
     private String requirements;
-    private int managerId;       // FK -> users.id
-    private Integer teamLeadId;  // FK -> users.id (nullable until assigned)
-    private Integer clientId;    // FK -> clients.id (nullable)
+    private Integer managerId;       // FK -> users.id, required
+    private Integer teamLeadId;      // FK -> users.id, nullable
+    private Integer clientId;        // FK -> clients.id, nullable
     private String domain;
     private BigDecimal cost;
     private LocalDate startDate;
     private LocalDate deadline;
-    private String priority;
-    private String status;
+    private String priority;         // "LOW", "MEDIUM", "HIGH"
+    private String status;           // e.g. "ACTIVE", "COMPLETED"
 
-    public Projects() {
+    public Project() {
     }
 
-    public Projects(int id, String name, String requirements, int managerId, Integer teamLeadId,
-                    Integer clientId, String domain, BigDecimal cost, LocalDate startDate,
-                    LocalDate deadline, String priority, String status) {
-        this.id = id;
+    public Project(String name, String requirements, Integer managerId, String priority) {
         this.name = name;
         this.requirements = requirements;
         this.managerId = managerId;
-        this.teamLeadId = teamLeadId;
-        this.clientId = clientId;
-        this.domain = domain;
-        this.cost = cost;
-        this.startDate = startDate;
-        this.deadline = deadline;
         this.priority = priority;
-        this.status = status;
+        this.status = "ACTIVE";
     }
 
-    // Constructor for creating a new project before an id is assigned by the DB
-    public Projects(String name, String requirements, int managerId, Integer teamLeadId,
-                    Integer clientId, String domain, BigDecimal cost, LocalDate startDate,
-                    LocalDate deadline, String priority, String status) {
-        this(0, name, requirements, managerId, teamLeadId, clientId, domain, cost,
-                startDate, deadline, priority, status);
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -75,11 +60,11 @@ public class Projects {
         this.requirements = requirements;
     }
 
-    public int getManagerId() {
+    public Integer getManagerId() {
         return managerId;
     }
 
-    public void setManagerId(int managerId) {
+    public void setManagerId(Integer managerId) {
         this.managerId = managerId;
     }
 
@@ -149,19 +134,12 @@ public class Projects {
 
     @Override
     public String toString() {
-        return "Project{" +
-                "id=" + id +
+        return "Project{id=" + id +
                 ", name='" + name + '\'' +
-                ", requirements='" + requirements + '\'' +
                 ", managerId=" + managerId +
-                ", teamLeadId=" + teamLeadId +
-                ", clientId=" + clientId +
-                ", domain='" + domain + '\'' +
-                ", cost=" + cost +
-                ", startDate=" + startDate +
-                ", deadline=" + deadline +
-                ", priority='" + priority + '\'' +
                 ", status='" + status + '\'' +
                 '}';
     }
 }
+
+

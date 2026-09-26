@@ -1,12 +1,11 @@
 package com.ptms.app.model;
 
 /**
- * Represents a row in the `clients` table.
- * A client is the external party a project is delivered for.
+ * Maps directly to the `clients` table.
  */
 public class Client {
 
-    private int id;
+    private Integer id;              // null until saved (auto-increment in DB)
     private String name;
     private String email;
     private String phone;
@@ -15,23 +14,18 @@ public class Client {
     public Client() {
     }
 
-    public Client(int id, String name, String email, String phone, String companyName) {
-        this.id = id;
+    public Client(String name, String email, String phone, String companyName) {
         this.name = name;
         this.email = email;
         this.phone = phone;
         this.companyName = companyName;
     }
 
-    public Client(String name, String email, String phone, String companyName) {
-        this(0, name, email, phone, companyName);
-    }
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -69,11 +63,8 @@ public class Client {
 
     @Override
     public String toString() {
-        return "Client{" +
-                "id=" + id +
+        return "Client{id=" + id +
                 ", name='" + name + '\'' +
-                ", email='" + email + '\'' +
-                ", phone='" + phone + '\'' +
                 ", companyName='" + companyName + '\'' +
                 '}';
     }

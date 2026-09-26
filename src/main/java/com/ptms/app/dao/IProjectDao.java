@@ -1,227 +1,221 @@
 package com.ptms.app.dao;
 
-import com.ptms.app.model.Projects;
-import com.ptms.app.util.DataBaseConnection;
-import java.sql.*;
+import com.ptms.app.model.Project;
+import com.ptms.app.util.DBConnection;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class IProjectDao implements ProjectDao {
 
-    private final String insertProject = "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, " +
-            "domain, cost, start_date, deadline, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private final String findProjectById = "SELECT * FROM projects WHERE id = ?";
-    private final String projectStatus = "SELECT * FROM projects WHERE status = ? ORDER BY id";
-    private final String searchById = "SELECT * FROM projects WHERE name LIKE ? ORDER BY id";
-    private final String updateProject = "UPDATE projects SET name = ?, requirements = ?, client_id = ?, domain = ?, " +
-            "cost = ?, start_date = ?, deadline = ?, priority = ?, status = ? WHERE id = ?";
+    private static final Logger logger = Logger.getLogger(IProjectDao.class.getName());
 
-    private final String projectTeamLead = "UPDATE projects SET team_lead_id = ? WHERE id = ?";
-    private final String projectUpdateStatus = "UPDATE projects SET status = ? WHERE id = ?";
-    private final String deleteProject = "DELETE FROM projects WHERE id = ?";
+    private final String insertProject =
+            "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, domain, " +
+                    "cost, start_date, deadline, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    private final String findProjectById =
+            "SELECT * FROM projects WHERE id = ?";
+
+    private final String findAllProjects =
+            "SELECT * FROM projects ORDER BY id";
+
+    private final String findProjectByManagerId =
+            "SELECT * FROM projects WHERE manager_id = ? ORDER BY id";
+
+    private final String findProjectByTeamLeadId =
+            "SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id";
+
+    private final String findProjectByClientId =
+            "SELECT * FROM projects WHERE client_id = ? ORDER BY id";
+
+    private final String updateProject =
+            "UPDATE projects SET name = ?, requirements = ?, manager_id = ?, team_lead_id = ?, " +
+                    "client_id = ?, domain = ?, cost = ?, start_date = ?, deadline = ?, priority = ?, status = ? WHERE id = ?";
+
+    private final String deleteProject =
+            "DELETE FROM projects WHERE id = ?";
 
     @Override
-    public int insert(Projects project) throws SQLException {
-
-        try (Connection conn = DataBaseConnection.getConnection();
+    public int insert(Project project) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(insertProject, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, project.getName());
             ps.setString(2, project.getRequirements());
             ps.setInt(3, project.getManagerId());
-            setNullableInt(ps, 4, project.getTeamLeadId());
-            setNullableInt(ps, 5, project.getClientId());
+            ps.setObject(4, project.getTeamLeadId());
+            ps.setObject(5, project.getClientId());
             ps.setString(6, project.getDomain());
             ps.setBigDecimal(7, project.getCost());
-            ps.setDate(8, project.getStartDate() != null ? Date.valueOf(project.getStartDate()) : null);
-            ps.setDate(9, project.getDeadline() != null ? Date.valueOf(project.getDeadline()) : null);
+            ps.setObject(8, project.getStartDate());
+            ps.setObject(9, project.getDeadline());
             ps.setString(10, project.getPriority());
             ps.setString(11, project.getStatus());
 
-            ps.executeUpdate();
-
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) {
-                    return keys.getInt(1);
+            int count = ps.executeUpdate();
+            if (count > 0) {
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        project.setId(keys.getInt(1));
+                    }
                 }
+                logger.info("Project inserted successfully, id=" + project.getId());
             }
+            return count;
+
+        } catch (SQLException e) {
+            logger.severe("Failed to insert project name=" + project.getName() + " : " + e.getMessage());
+            throw e;
         }
-        return -1;
     }
 
     @Override
-    public Projects findById(int id) throws SQLException {
-
-        try (Connection conn = DataBaseConnection.getConnection();
+    public Project findById(int id) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(findProjectById)) {
 
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? mapRow(rs) : null;
             }
+
+        } catch (SQLException e) {
+            logger.severe("Failed to fetch project id=" + id + " : " + e.getMessage());
+            throw e;
         }
     }
 
     @Override
-    public List<Projects> findAll() throws SQLException {
-        return runListQuery("SELECT * FROM projects ORDER BY id", null);
+    public List<Project> findAll() throws SQLException {
+        List<Project> projects = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(findAllProjects);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                projects.add(mapRow(rs));
+            }
+            return projects;
+
+        } catch (SQLException e) {
+            logger.severe("Failed to fetch all projects : " + e.getMessage());
+            throw e;
+        }
     }
 
     @Override
-    public List<Projects> findByManager(int managerId) throws SQLException {
-        return runListQuery("SELECT * FROM projects WHERE manager_id = ? ORDER BY id", managerId);
+    public List<Project> findByManagerId(int managerId) throws SQLException {
+        return findByForeignKey(findProjectByManagerId, managerId, "manager_id");
     }
 
     @Override
-    public List<Projects> findByTeamLead(int teamLeadId) throws SQLException {
-        return runListQuery("SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id", teamLeadId);
+    public List<Project> findByTeamLeadId(int teamLeadId) throws SQLException {
+        return findByForeignKey(findProjectByTeamLeadId, teamLeadId, "team_lead_id");
     }
 
     @Override
-    public List<Projects> findByClient(int clientId) throws SQLException {
-        return runListQuery("SELECT * FROM projects WHERE client_id = ? ORDER BY id", clientId);
+    public List<Project> findByClientId(int clientId) throws SQLException {
+        return findByForeignKey(findProjectByClientId, clientId, "client_id");
     }
 
-    @Override
-    public List<Projects> findByStatus(String status) throws SQLException {
+    private List<Project> findByForeignKey(String sql, int value, String columnLabelForLog) throws SQLException {
+        List<Project> projects = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-        List<Projects> projects = new ArrayList<>();
-
-        try (Connection conn = DataBaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(projectStatus)) {
-
-            ps.setString(1, status);
+            ps.setInt(1, value);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     projects.add(mapRow(rs));
                 }
             }
+            return projects;
+
+        } catch (SQLException e) {
+            logger.severe("Failed to fetch projects by " + columnLabelForLog + "=" + value + " : " + e.getMessage());
+            throw e;
         }
-        return projects;
     }
 
     @Override
-    public List<Projects> searchByName(String keyword) throws SQLException {
-
-        List<Projects> projects = new ArrayList<>();
-
-        try (Connection conn = DataBaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(searchById)) {
-
-            ps.setString(1, "%" + keyword + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    projects.add(mapRow(rs));
-                }
-            }
-        }
-        return projects;
-    }
-
-    @Override
-    public boolean update(Projects project) throws SQLException {
-
-        try (Connection conn = DataBaseConnection.getConnection();
+    public int update(Project project) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(updateProject)) {
 
             ps.setString(1, project.getName());
             ps.setString(2, project.getRequirements());
-            setNullableInt(ps, 3, project.getClientId());
-            ps.setString(4, project.getDomain());
-            ps.setBigDecimal(5, project.getCost());
-            ps.setDate(6, project.getStartDate() != null ? Date.valueOf(project.getStartDate()) : null);
-            ps.setDate(7, project.getDeadline() != null ? Date.valueOf(project.getDeadline()) : null);
-            ps.setString(8, project.getPriority());
-            ps.setString(9, project.getStatus());
-            ps.setInt(10, project.getId());
+            ps.setInt(3, project.getManagerId());
+            ps.setObject(4, project.getTeamLeadId());
+            ps.setObject(5, project.getClientId());
+            ps.setString(6, project.getDomain());
+            ps.setBigDecimal(7, project.getCost());
+            ps.setObject(8, project.getStartDate());
+            ps.setObject(9, project.getDeadline());
+            ps.setString(10, project.getPriority());
+            ps.setString(11, project.getStatus());
+            ps.setInt(12, project.getId());
 
-            return ps.executeUpdate() > 0;
+            int count = ps.executeUpdate();
+            if (count > 0) {
+                logger.info("Project updated successfully, id=" + project.getId());
+            }
+            return count;
+
+        } catch (SQLException e) {
+            logger.severe("Failed to update project id=" + project.getId() + " : " + e.getMessage());
+            throw e;
         }
     }
 
     @Override
-    public boolean assignTeamLead(int projectId, int teamLeadId) throws SQLException {
-
-        try (Connection conn = DataBaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(projectTeamLead)) {
-
-            ps.setInt(1, teamLeadId);
-            ps.setInt(2, projectId);
-            return ps.executeUpdate() > 0;
-        }
-    }
-
-    @Override
-    public boolean updateStatus(int projectId, String status) throws SQLException {
-
-        try (Connection conn = DataBaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(projectUpdateStatus)) {
-
-            ps.setString(1, status);
-            ps.setInt(2, projectId);
-            return ps.executeUpdate() > 0;
-        }
-    }
-
-    @Override
-    public boolean delete(int id) throws SQLException {
-
-        try (Connection conn = DataBaseConnection.getConnection();
+    public int delete(int id) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(deleteProject)) {
 
             ps.setInt(1, id);
-            return ps.executeUpdate() > 0;
-        }
-    }
-
-    private List<Projects> runListQuery(String sql, Integer param) throws SQLException {
-        List<Projects> projects = new ArrayList<>();
-        try (Connection conn = DataBaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            if (param != null) {
-                ps.setInt(1, param);
+            int count = ps.executeUpdate();
+            if (count > 0) {
+                logger.info("Project deleted successfully, id=" + id);
             }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    projects.add(mapRow(rs));
-                }
-            }
-        }
-        return projects;
-    }
+            return count;
 
-    private void setNullableInt(PreparedStatement ps, int index, Integer value) throws SQLException {
-        if (value != null) {
-            ps.setInt(index, value);
-        } else {
-            ps.setNull(index, Types.INTEGER);
+        } catch (SQLException e) {
+            logger.severe("Failed to delete project id=" + id + " : " + e.getMessage());
+            throw e;
         }
     }
 
-    private Projects mapRow(ResultSet rs) throws SQLException {
-        Date startDate = rs.getDate("start_date");
-        Date deadline = rs.getDate("deadline");
+    private Project mapRow(ResultSet rs) throws SQLException {
+        Project project = new Project();
+        project.setId(rs.getInt("id"));
+        project.setName(rs.getString("name"));
+        project.setRequirements(rs.getString("requirements"));
+        project.setManagerId(rs.getInt("manager_id"));
 
-        int teamLeadIdRaw = rs.getInt("team_lead_id");
-        Integer teamLeadId = rs.wasNull() ? null : teamLeadIdRaw;
+        int teamLeadId = rs.getInt("team_lead_id");
+        project.setTeamLeadId(rs.wasNull() ? null : teamLeadId);
 
-        int clientIdRaw = rs.getInt("client_id");
-        Integer clientId = rs.wasNull() ? null : clientIdRaw;
+        int clientId = rs.getInt("client_id");
+        project.setClientId(rs.wasNull() ? null : clientId);
 
-        return new Projects(
-                rs.getInt("id"),
-                rs.getString("name"),
-                rs.getString("requirements"),
-                rs.getInt("manager_id"),
-                teamLeadId,
-                clientId,
-                rs.getString("domain"),
-                rs.getBigDecimal("cost"),
-                startDate != null ? startDate.toLocalDate() : null,
-                deadline != null ? deadline.toLocalDate() : null,
-                rs.getString("priority"),
-                rs.getString("status")
-        );
+        project.setDomain(rs.getString("domain"));
+        project.setCost(rs.getBigDecimal("cost"));
+
+        java.sql.Date startDate = rs.getDate("start_date");
+        project.setStartDate(startDate != null ? startDate.toLocalDate() : null);
+
+        java.sql.Date deadline = rs.getDate("deadline");
+        project.setDeadline(deadline != null ? deadline.toLocalDate() : null);
+
+        project.setPriority(rs.getString("priority"));
+        project.setStatus(rs.getString("status"));
+        return project;
     }
 }
