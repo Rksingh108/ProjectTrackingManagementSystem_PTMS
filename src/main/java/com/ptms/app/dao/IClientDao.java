@@ -16,26 +16,15 @@ public class IClientDao implements ClientDao {
 
     private static final Logger logger = Logger.getLogger(IClientDao.class.getName());
 
-    private final String insertClient =
-            "INSERT INTO clients (name, email, phone, company_name) VALUES (?, ?, ?, ?)";
-
-    private final String findClientById =
-            "SELECT * FROM clients WHERE id = ?";
-
-    private final String findAllClients =
-            "SELECT * FROM clients ORDER BY id";
-
-    private final String searchClientByName =
-            "SELECT * FROM clients WHERE name LIKE ? OR company_name LIKE ? ORDER BY id";
-
-    private final String updateClient =
-            "UPDATE clients SET name = ?, email = ?, phone = ?, company_name = ? WHERE id = ?";
-
-    private final String deleteClient =
-            "DELETE FROM clients WHERE id = ?";
+    private final String insertClient = "INSERT INTO clients (name, email, phone, company_name) VALUES (?, ?, ?, ?)";
+    private final String findClientById = "SELECT * FROM clients WHERE id = ?";
+    private final String findAllClients = "SELECT * FROM clients ORDER BY id";
+    private final String searchClientByName = "SELECT * FROM clients WHERE name LIKE ? OR company_name LIKE ? ORDER BY id";
+    private final String updateClient = "UPDATE clients SET name = ?, email = ?, phone = ?, company_name = ? WHERE id = ?";
+    private final String deleteClient = "DELETE FROM clients WHERE id = ?";
 
     @Override
-    public int insert(Client client) throws SQLException {
+    public int insertClient(Client client) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(insertClient, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -62,7 +51,7 @@ public class IClientDao implements ClientDao {
     }
 
     @Override
-    public Client findById(int id) throws SQLException {
+    public Client findByClientId(int id) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(findClientById)) {
 
@@ -96,7 +85,7 @@ public class IClientDao implements ClientDao {
     }
 
     @Override
-    public List<Client> searchByName(String keyword) throws SQLException {
+    public List<Client> searchByClientName(String keyword) throws SQLException {
         List<Client> clients = new ArrayList<>();
         String likePattern = "%" + keyword + "%";
 
@@ -120,7 +109,7 @@ public class IClientDao implements ClientDao {
     }
 
     @Override
-    public int update(Client client) throws SQLException {
+    public int updateClient(Client client) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(updateClient)) {
 
@@ -143,7 +132,7 @@ public class IClientDao implements ClientDao {
     }
 
     @Override
-    public int delete(int id) throws SQLException {
+    public int deleteClient(int id) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(deleteClient)) {
 

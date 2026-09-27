@@ -3,27 +3,21 @@ package com.ptms.app.model;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * Maps directly to the `projects` table.
- * manager_id / team_lead_id / client_id are stored here just as the FK ids
- * (Integer) rather than nested User/Client objects — keeps the DAO's
- * mapRow() simple. If a screen needs the manager's name etc., the service
- * layer joins that in, not this model.
- */
+
 public class Project {
 
-    private Integer id;              // null until saved (auto-increment in DB)
+    private Integer id;
     private String name;
     private String requirements;
-    private Integer managerId;       // FK -> users.id, required
-    private Integer teamLeadId;      // FK -> users.id, nullable
-    private Integer clientId;        // FK -> clients.id, nullable
+    private Integer managerId;
+    private Integer teamLeadId;
+    private Integer clientId;
     private String domain;
     private BigDecimal cost;
     private LocalDate startDate;
     private LocalDate deadline;
-    private String priority;         // "LOW", "MEDIUM", "HIGH"
-    private String status;           // e.g. "ACTIVE", "COMPLETED"
+    private String priority;
+    private String status;
 
     public Project() {
     }

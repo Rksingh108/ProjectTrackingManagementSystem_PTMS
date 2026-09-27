@@ -10,8 +10,12 @@ import com.ptms.app.service.IClientService;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ClientController {
+
+    private static final Logger logger = Logger.getLogger(ClientController.class.getName());
 
     private final ClientService clientService;
     private final Scanner scanner;
@@ -28,17 +32,23 @@ public class ClientController {
 
     public void showMenu(User loggedInUser) {
         boolean running = true;
-        while (running) {
-            System.out.println("\n--- Client Management ---");
-            System.out.println("1. Add client");
-            System.out.println("2. View all clients");
-            System.out.println("3. Search clients by name");
-            System.out.println("4. Update client");
-            System.out.println("5. Delete client");
-            System.out.println("0. Back");
-            System.out.print("Choose an option: ");
 
+        while (running) {
+            logger.info("""
+                    
+                    --- Client Management ---
+                    0. Back
+                    1. Add client
+                    2. View all clients
+                    3. Search clients by name
+                    4. Update client
+                    5. Delete client
+                   
+                    """);
+
+            System.out.print("Choose an option: ");
             String choice = scanner.nextLine().trim();
+
             try {
                 switch (choice) {
                     case "1" -> addClient(loggedInUser);
@@ -46,13 +56,16 @@ public class ClientController {
                     case "3" -> searchClients();
                     case "4" -> updateClient(loggedInUser);
                     case "5" -> deleteClient(loggedInUser);
-                    case "0" -> running = false;
-                    default -> System.out.println("Invalid option, try again.");
+                    case "0" -> {
+                        running = false;
+                        logger.info("Exited client management.");
+                    }
+                    default -> logger.warning("Invalid menu option selected: " + choice);
                 }
             } catch (UnauthorizedException | ResourceNotFoundException e) {
-                System.out.println("Error: " + e.getMessage());
+                logger.warning("Operation failed: " + e.getMessage());
             } catch (SQLException e) {
-                System.out.println("Database error: " + e.getMessage());
+                logger.log(Level.SEVERE, "Database error while processing client operation.", e);
             }
         }
     }
@@ -60,44 +73,58 @@ public class ClientController {
     private void addClient(User requestingUser) throws SQLException {
         System.out.print("Client name: ");
         String name = scanner.nextLine().trim();
+
         System.out.print("Email: ");
         String email = scanner.nextLine().trim();
+
         System.out.print("Phone: ");
         String phone = scanner.nextLine().trim();
+
         System.out.print("Company name: ");
         String companyName = scanner.nextLine().trim();
 
         Client client = new Client(name, email, phone, companyName);
+
         clientService.addClient(client, requestingUser);
-        System.out.println("Client added, id=" + client.getId());
+
+        logger.info("Client added successfully. Client ID: " + client.getId());
     }
 
     private void viewAllClients() throws SQLException {
         List<Client> clients = clientService.getAllClients();
+
         if (clients.isEmpty()) {
-            System.out.println("No clients found.");
+            logger.info("No clients found.");
             return;
         }
+
+        logger.info("Retrieved " + clients.size() + " client(s).");
         clients.forEach(this::printClientSummary);
     }
 
     private void searchClients() throws SQLException {
         System.out.print("Search keyword: ");
         String keyword = scanner.nextLine().trim();
+
         List<Client> results = clientService.searchClients(keyword);
+
         if (results.isEmpty()) {
-            System.out.println("No matching clients.");
+            logger.info("No clients found for keyword: " + keyword);
             return;
         }
+
+        logger.info("Found " + results.size() + " client(s) for keyword: " + keyword);
         results.forEach(this::printClientSummary);
     }
 
     private void updateClient(User requestingUser) throws SQLException {
         System.out.print("Client id to update: ");
         int id = Integer.parseInt(scanner.nextLine().trim());
+
         Client client = clientService.getClientById(id);
 
-        System.out.println("Leave a field blank to keep its current value.");
+        logger.info("Updating client with ID: " + id);
+        logger.info("Leave a field blank to keep its current value.");
 
         System.out.print("Name [" + client.getName() + "]: ");
         String name = scanner.nextLine().trim();
@@ -124,18 +151,27 @@ public class ClientController {
         }
 
         clientService.updateClient(client, requestingUser);
-        System.out.println("Client updated.");
+
+        logger.info("Client updated successfully. Client ID: " + id);
     }
 
     private void deleteClient(User requestingUser) throws SQLException {
         System.out.print("Client id to delete: ");
         int id = Integer.parseInt(scanner.nextLine().trim());
+
         clientService.deleteClient(id, requestingUser);
-        System.out.println("Client deleted.");
+
+        logger.info("Client deleted successfully. Client ID: " + id);
     }
 
     private void printClientSummary(Client client) {
-        System.out.printf("id=%d | %s | email=%s | phone=%s | company=%s%n",
-                client.getId(), client.getName(), client.getEmail(), client.getPhone(), client.getCompanyName());
+        logger.info(String.format(
+                "Client: id=%d | name=%s | email=%s | phone=%s | company=%s",
+                client.getId(),
+                client.getName(),
+                client.getEmail(),
+                client.getPhone(),
+                client.getCompanyName()
+        ));
     }
 }

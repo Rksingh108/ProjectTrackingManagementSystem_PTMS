@@ -16,28 +16,22 @@ public class ITicketDao implements TicketDao {
 
     private static final Logger logger = Logger.getLogger(ITicketDao.class.getName());
 
-    private final String insertTicket =
-            "INSERT INTO ticket_management (project_id, title, description, priority, deadline, " +
+    private final String insertTicket = "INSERT INTO ticket_management (project_id, title, description, priority, deadline, " +
                     "assigned_to, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-    private final String findTicketById =
-            "SELECT * FROM ticket_management WHERE id = ?";
+    private final String findTicketById = "SELECT * FROM ticket_management WHERE id = ?";
 
-    private final String findTicketsByProjectId =
-            "SELECT * FROM ticket_management WHERE project_id = ? ORDER BY id";
+    private final String findTicketsByProjectId = "SELECT * FROM ticket_management WHERE project_id = ? ORDER BY id";
 
-    private final String findTicketsByAssignedTo =
-            "SELECT * FROM ticket_management WHERE assigned_to = ? ORDER BY id";
+    private final String findTicketsByAssignedTo = "SELECT * FROM ticket_management WHERE assigned_to = ? ORDER BY id";
 
-    private final String updateTicket =
-            "UPDATE ticket_management SET title = ?, description = ?, priority = ?, deadline = ?, " +
+    private final String updateTicket = "UPDATE ticket_management SET title = ?, description = ?, priority = ?, deadline = ?, " +
                     "assigned_to = ?, status = ? WHERE id = ?";
 
-    private final String deleteTicket =
-            "DELETE FROM ticket_management WHERE id = ?";
+    private final String deleteTicket = "DELETE FROM ticket_management WHERE id = ?";
 
     @Override
-    public int insert(Ticket ticket) throws SQLException {
+    public int insertTicket(Ticket ticket) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(insertTicket, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -67,7 +61,7 @@ public class ITicketDao implements TicketDao {
     }
 
     @Override
-    public Ticket findById(int id) throws SQLException {
+    public Ticket findByTicketId(int id) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(findTicketById)) {
 
@@ -123,7 +117,7 @@ public class ITicketDao implements TicketDao {
     }
 
     @Override
-    public int update(Ticket ticket) throws SQLException {
+    public int updateTicket(Ticket ticket) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(updateTicket)) {
 
@@ -148,7 +142,7 @@ public class ITicketDao implements TicketDao {
     }
 
     @Override
-    public int delete(int id) throws SQLException {
+    public int deleteTicket(int id) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(deleteTicket)) {
 

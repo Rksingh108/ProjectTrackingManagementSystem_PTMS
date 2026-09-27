@@ -2,16 +2,11 @@ package com.ptms.app.model;
 
 import java.time.LocalDateTime;
 
-/**
- * Maps directly to the `project_members` table — the junction table
- * resolving the many-to-many between users and projects.
- * Its primary key is the (projectId, userId) pair, not a single id column,
- * so there's no separate `id` field here.
- */
+
 public class ProjectMember {
 
-    private Integer projectId;       // PK, FK -> projects.id
-    private Integer userId;          // PK, FK -> users.id
+    private Integer projectId;
+    private Integer userId;
     private String roleInProject;
     private LocalDateTime joinedAt;
 

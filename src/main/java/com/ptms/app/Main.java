@@ -3,17 +3,14 @@ package com.ptms.app;
 import com.ptms.app.controller.ClientController;
 import com.ptms.app.controller.ProjectController;
 import com.ptms.app.controller.ProjectMemberController;
+import com.ptms.app.controller.TicketController;
+import com.ptms.app.controller.TicketTrackingController;
 import com.ptms.app.controller.UserController;
 import com.ptms.app.model.User;
 
 import java.sql.SQLException;
 import java.util.Scanner;
 
-/**
- * The one entry point that actually runs the app.
- * Everything else (model/dao/service/controller) is just classes sitting
- * there until something like this calls them.
- */
 public class Main {
 
     public static void main(String[] args) {
@@ -54,6 +51,8 @@ public class Main {
         ClientController clientController = new ClientController();
         ProjectController projectController = new ProjectController();
         ProjectMemberController projectMemberController = new ProjectMemberController();
+        TicketController ticketController = new TicketController();
+        TicketTrackingController ticketTrackingController = new TicketTrackingController();
         boolean running = true;
 
         while (running) {
@@ -62,6 +61,8 @@ public class Main {
             System.out.println("2. Client Management");
             System.out.println("3. Project Management");
             System.out.println("4. Project Members");
+            System.out.println("5. Ticket Management");
+            System.out.println("6. Ticket Tracking (view only)");
             System.out.println("0. Logout");
             System.out.print("Choose an option: ");
 
@@ -71,6 +72,8 @@ public class Main {
                 case "2" -> clientController.showMenu(loggedInUser);
                 case "3" -> projectController.showMenu(loggedInUser);
                 case "4" -> projectMemberController.showMenu(loggedInUser);
+                case "5" -> ticketController.showMenu(loggedInUser);
+                case "6" -> ticketTrackingController.showMenu(loggedInUser);
                 case "0" -> {
                     System.out.println("Logged out.");
                     running = false;

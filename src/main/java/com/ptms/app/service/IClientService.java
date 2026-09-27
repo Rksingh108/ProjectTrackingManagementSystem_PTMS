@@ -28,14 +28,14 @@ public class IClientService implements ClientService {
     @Override
     public Client addClient(Client client, User requestingUser) throws SQLException {
         requireAdminOrManager(requestingUser, "add a client");
-        clientDao.insert(client);
+        clientDao.insertClient(client);
         logger.info("Client added: " + client.getName() + " by user id=" + requestingUser.getId());
         return client;
     }
 
     @Override
     public Client getClientById(int id) throws SQLException {
-        Client client = clientDao.findById(id);
+        Client client = clientDao.findByClientId(id);
         if (client == null) {
             throw new ResourceNotFoundException("No client found with id " + id);
         }
@@ -49,13 +49,13 @@ public class IClientService implements ClientService {
 
     @Override
     public List<Client> searchClients(String keyword) throws SQLException {
-        return clientDao.searchByName(keyword);
+        return clientDao.searchByClientName(keyword);
     }
 
     @Override
     public void updateClient(Client client, User requestingUser) throws SQLException {
         requireAdminOrManager(requestingUser, "update a client");
-        int rows = clientDao.update(client);
+        int rows = clientDao.updateClient(client);
         if (rows == 0) {
             throw new ResourceNotFoundException("No client found with id " + client.getId() + " to update.");
         }
@@ -65,7 +65,7 @@ public class IClientService implements ClientService {
     @Override
     public void deleteClient(int id, User requestingUser) throws SQLException {
         requireAdminOrManager(requestingUser, "delete a client");
-        int rows = clientDao.delete(id);
+        int rows = clientDao.deleteClient(id);
         if (rows == 0) {
             throw new ResourceNotFoundException("No client found with id " + id + " to delete.");
         }

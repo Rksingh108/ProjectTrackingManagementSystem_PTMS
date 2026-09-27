@@ -4,15 +4,11 @@ import java.sql.SQLException;
 import java.util.List;
 public interface ClientDao {
 
-    int insert(Client client) throws SQLException;
-
-    Client findById(int id) throws SQLException;
-
+    int insertClient(Client client) throws SQLException;
+    Client findByClientId(int id) throws SQLException;
     List<Client> findAll() throws SQLException;
+    List<Client> searchByClientName(String keyword) throws SQLException;
+    int updateClient(Client client) throws SQLException;
+    int deleteClient(int id) throws SQLException;
 
-    List<Client> searchByName(String keyword) throws SQLException;
-
-    int update(Client client) throws SQLException;
-
-    int delete(int id) throws SQLException;
 }

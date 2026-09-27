@@ -2,23 +2,35 @@ package com.ptms.app.model;
 
 import java.time.LocalDate;
 
-/**
- * Maps directly to the `users` table.
- * One class, one `role` field — covers Admin, Project Manager, Team Lead,
- * and Team Member without needing separate subclasses.
- */
 public class User {
 
     public enum Role {
-        ADMIN, PROJECT_MANAGER, TEAM_LEAD, TEAM_MEMBER
+        ADMIN,
+        PROJECT_MANAGER,
+        TEAM_LEAD,
+        TEAM_MEMBER;
+
+        public static Role fromString(String value) {
+            if (value == null) {
+                return null;
+            }
+
+            for (Role role : Role.values()) {
+                if (role.name().equalsIgnoreCase(value.trim())) {
+                    return role;
+                }
+            }
+
+            throw new IllegalArgumentException("Invalid role: " + value);
+        }
     }
 
-    private Integer id;              // null until saved (auto-increment in DB)
+    private Integer id;
     private String firstName;
     private String lastName;
     private String username;
     private String email;
-    private String password;         // holds a hash, never plaintext
+    private String password;
     private Role role;
     private LocalDate dateOfBirth;
     private String mobileNumber;
@@ -36,8 +48,6 @@ public class User {
         this.password = password;
         this.role = role;
     }
-
-    // --- getters and setters ---
 
     public Integer getId() {
         return id;
@@ -128,9 +138,3 @@ public class User {
                 '}';
     }
 }
-
-
-
-
-
-

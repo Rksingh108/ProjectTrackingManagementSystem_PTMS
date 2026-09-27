@@ -11,20 +11,13 @@ import java.util.List;
 import java.util.logging.Logger;
 public class ITicketTrackingDao implements TicketTrackingDao {
     private static final Logger logger = Logger.getLogger(ITicketTrackingDao.class.getName());
-    private final String insertTicketTracking =
-            "INSERT INTO ticket_tracking (ticket_id, status, progress, comment, updated_by) VALUES (?, ?, ?, ?, ?)";
-    private final String findTrackingByTicketId =
-            "SELECT * FROM ticket_tracking WHERE ticket_id = ?";
-    private final String findTrackingByUpdatedBy =
-            "SELECT * FROM ticket_tracking WHERE updated_by = ? ORDER BY updated_at DESC";
-    // ticket_id is UNIQUE (one tracking row per ticket), so it's the natural
-    // key callers already have on hand — used here instead of the surrogate id.
-    private final String updateTicketTracking =
-            "UPDATE ticket_tracking SET status = ?, progress = ?, comment = ?, updated_by = ? WHERE ticket_id = ?";
-    private final String deleteTicketTracking =
-            "DELETE FROM ticket_tracking WHERE ticket_id = ?";
+    private final String insertTicketTracking = "INSERT INTO ticket_tracking (ticket_id, status, progress, comment, updated_by) VALUES (?, ?, ?, ?, ?)";
+    private final String findTrackingByTicketId = "SELECT * FROM ticket_tracking WHERE ticket_id = ?";
+    private final String findTrackingByUpdatedBy = "SELECT * FROM ticket_tracking WHERE updated_by = ? ORDER BY updated_at DESC";
+    private final String updateTicketTracking = "UPDATE ticket_tracking SET status = ?, progress = ?, comment = ?, updated_by = ? WHERE ticket_id = ?";
+    private final String deleteTicketTracking = "DELETE FROM ticket_tracking WHERE ticket_id = ?";
     @Override
-    public int insert(TicketTracking tracking) throws SQLException {
+    public int insertTicket(TicketTracking tracking) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(insertTicketTracking, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, tracking.getTicketId());
@@ -78,7 +71,7 @@ public class ITicketTrackingDao implements TicketTrackingDao {
         }
     }
     @Override
-    public int update(TicketTracking tracking) throws SQLException {
+    public int updateTicket(TicketTracking tracking) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(updateTicketTracking)) {
             ps.setString(1, tracking.getStatus());
@@ -98,7 +91,7 @@ public class ITicketTrackingDao implements TicketTrackingDao {
         }
     }
     @Override
-    public int delete(int ticketId) throws SQLException {
+    public int deleteTicket(int ticketId) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(deleteTicketTracking)) {
 

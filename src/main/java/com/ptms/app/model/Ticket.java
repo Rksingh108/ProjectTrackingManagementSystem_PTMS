@@ -1,21 +1,18 @@
 package com.ptms.app.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-/**
- * Maps directly to the `ticket_management` table.
- * Named `Ticket` rather than `TicketManagement` for readability — the class
- * name doesn't have to match the table name exactly.
- */
+
+
 public class Ticket {
-    private Integer id;              // null until saved (auto-increment in DB)
-    private Integer projectId;       // FK -> projects.id
+    private Integer id;
+    private Integer projectId;
     private String title;
     private String description;
-    private String priority;         // "LOW", "MEDIUM", "HIGH"
+    private String priority;
     private LocalDate deadline;
-    private Integer assignedTo;      // FK -> users.id, nullable
+    private Integer assignedTo;
     private LocalDateTime createdAt;
-    private String status;           // "IN_DEVELOPMENT", "IN_PROGRESS", "IMPLEMENTED", "COMPLETED"
+    private String status;
     public Ticket() {
     }
     public Ticket(Integer projectId, String title, String description, String priority) {

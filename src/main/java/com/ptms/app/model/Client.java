@@ -1,11 +1,8 @@
 package com.ptms.app.model;
 
-/**
- * Maps directly to the `clients` table.
- */
 public class Client {
 
-    private Integer id;              // null until saved (auto-increment in DB)
+    private Integer id;
     private String name;
     private String email;
     private String phone;

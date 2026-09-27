@@ -43,16 +43,14 @@ public class IProjectService implements ProjectService {
         if (requestingUser.getRole() != User.Role.ADMIN && requestingUser.getRole() != User.Role.PROJECT_MANAGER) {
             throw new UnauthorizedException("Only an Admin or Project Manager can create a project.");
         }
-        // The manager on record is whoever is creating it, unless an Admin is
-        // explicitly assigning it to a different manager.
+
         if (project.getManagerId() == null) {
             project.setManagerId(requestingUser.getId());
         }
-        projectDao.insert(project);
+        projectDao.insertProject(project);
 
-        // Whoever manages the project is automatically a member of it.
         ProjectMember creatorMembership = new ProjectMember(project.getId(), project.getManagerId(), "PROJECT_MANAGER");
-        projectMemberDao.insert(creatorMembership);
+        projectMemberDao.insertMember(creatorMembership);
 
         logger.info("Project created: " + project.getName() + " (id=" + project.getId() + ") by user id=" + requestingUser.getId());
         return project;
@@ -60,7 +58,7 @@ public class IProjectService implements ProjectService {
 
     @Override
     public Project getProjectById(int id) throws SQLException {
-        Project project = projectDao.findById(id);
+        Project project = projectDao.findByProjectId(id);
         if (project == null) {
             throw new ResourceNotFoundException("No project found with id " + id);
         }
@@ -86,7 +84,7 @@ public class IProjectService implements ProjectService {
                 List<ProjectMember> memberships = projectMemberDao.findByUserId(user.getId());
                 List<Project> projects = new ArrayList<>();
                 for (ProjectMember membership : memberships) {
-                    Project project = projectDao.findById(membership.getProjectId());
+                    Project project = projectDao.findByProjectId(membership.getProjectId());
                     if (project != null) {
                         projects.add(project);
                     }
@@ -100,7 +98,7 @@ public class IProjectService implements ProjectService {
         if (requestingUser.getRole() != User.Role.ADMIN && requestingUser.getRole() != User.Role.PROJECT_MANAGER) {
             throw new UnauthorizedException("Only an Admin or Project Manager can assign a team lead.");
         }
-        User candidate = userDao.findById(teamLeadUserId);
+        User candidate = userDao.findByUserId(teamLeadUserId);
         if (candidate == null) {
             throw new ResourceNotFoundException("No user found with id " + teamLeadUserId);
         }
@@ -110,11 +108,10 @@ public class IProjectService implements ProjectService {
 
         Project project = getProjectById(projectId);
         project.setTeamLeadId(teamLeadUserId);
-        projectDao.update(project);
+        projectDao.updateProject(project);
 
-        // Team lead should also show up as a project member.
         if (projectMemberDao.findByProjectId(projectId).stream().noneMatch(m -> m.getUserId().equals(teamLeadUserId))) {
-            projectMemberDao.insert(new ProjectMember(projectId, teamLeadUserId, "TEAM_LEAD"));
+            projectMemberDao.insertMember(new ProjectMember(projectId, teamLeadUserId, "TEAM_LEAD"));
         }
 
         logger.info("Team lead assigned: userId=" + teamLeadUserId + " to projectId=" + projectId);
@@ -127,7 +124,7 @@ public class IProjectService implements ProjectService {
                 && project.getManagerId().equals(requestingUser.getId()))) {
             throw new UnauthorizedException("Only an Admin, or the managing Project Manager, can update this project.");
         }
-        int rows = projectDao.update(project);
+        int rows = projectDao.updateProject(project);
         if (rows == 0) {
             throw new ResourceNotFoundException("No project found with id " + project.getId() + " to update.");
         }
@@ -139,7 +136,7 @@ public class IProjectService implements ProjectService {
         if (requestingUser.getRole() != User.Role.ADMIN) {
             throw new UnauthorizedException("Only an Admin can delete a project.");
         }
-        int rows = projectDao.delete(id);
+        int rows = projectDao.deleteProject(id);
         if (rows == 0) {
             throw new ResourceNotFoundException("No project found with id " + id + " to delete.");
         }

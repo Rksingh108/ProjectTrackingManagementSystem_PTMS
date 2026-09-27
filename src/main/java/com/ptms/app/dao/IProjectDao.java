@@ -16,34 +16,26 @@ public class IProjectDao implements ProjectDao {
 
     private static final Logger logger = Logger.getLogger(IProjectDao.class.getName());
 
-    private final String insertProject =
-            "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, domain, " +
+    private final String insertProject = "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, domain, " +
                     "cost, start_date, deadline, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    private final String findProjectById =
-            "SELECT * FROM projects WHERE id = ?";
+    private final String findProjectById = "SELECT * FROM projects WHERE id = ?";
 
-    private final String findAllProjects =
-            "SELECT * FROM projects ORDER BY id";
+    private final String findAllProjects = "SELECT * FROM projects ORDER BY id";
 
-    private final String findProjectByManagerId =
-            "SELECT * FROM projects WHERE manager_id = ? ORDER BY id";
+    private final String findProjectByManagerId = "SELECT * FROM projects WHERE manager_id = ? ORDER BY id";
 
-    private final String findProjectByTeamLeadId =
-            "SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id";
+    private final String findProjectByTeamLeadId = "SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id";
 
-    private final String findProjectByClientId =
-            "SELECT * FROM projects WHERE client_id = ? ORDER BY id";
+    private final String findProjectByClientId = "SELECT * FROM projects WHERE client_id = ? ORDER BY id";
 
-    private final String updateProject =
-            "UPDATE projects SET name = ?, requirements = ?, manager_id = ?, team_lead_id = ?, " +
+    private final String updateProject = "UPDATE projects SET name = ?, requirements = ?, manager_id = ?, team_lead_id = ?, " +
                     "client_id = ?, domain = ?, cost = ?, start_date = ?, deadline = ?, priority = ?, status = ? WHERE id = ?";
 
-    private final String deleteProject =
-            "DELETE FROM projects WHERE id = ?";
+    private final String deleteProject = "DELETE FROM projects WHERE id = ?";
 
     @Override
-    public int insert(Project project) throws SQLException {
+    public int insertProject(Project project) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(insertProject, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -77,7 +69,7 @@ public class IProjectDao implements ProjectDao {
     }
 
     @Override
-    public Project findById(int id) throws SQLException {
+    public Project findByProjectId(int id) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(findProjectById)) {
 
@@ -145,7 +137,7 @@ public class IProjectDao implements ProjectDao {
     }
 
     @Override
-    public int update(Project project) throws SQLException {
+    public int updateProject(Project project) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(updateProject)) {
 
@@ -175,7 +167,7 @@ public class IProjectDao implements ProjectDao {
     }
 
     @Override
-    public int delete(int id) throws SQLException {
+    public int deleteProject(int id) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(deleteProject)) {
 

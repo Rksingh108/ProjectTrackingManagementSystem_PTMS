@@ -42,7 +42,7 @@ public class IProjectMemberService implements ProjectMemberService {
         Project project = requireProject(projectId);
         requireCanManageMembers(project, requestingUser);
 
-        if (userDao.findById(userId) == null) {
+        if (userDao.findByUserId(userId) == null) {
             throw new ResourceNotFoundException("No user found with id " + userId);
         }
         boolean alreadyMember = projectMemberDao.findByProjectId(projectId).stream()
@@ -51,7 +51,7 @@ public class IProjectMemberService implements ProjectMemberService {
             throw new ValidationException("User id=" + userId + " is already a member of project id=" + projectId);
         }
 
-        projectMemberDao.insert(new ProjectMember(projectId, userId, roleInProject));
+        projectMemberDao.insertMember(new ProjectMember(projectId, userId, roleInProject));
         logger.info("Added userId=" + userId + " to projectId=" + projectId + " by requestingUser id=" + requestingUser.getId());
     }
 
@@ -60,7 +60,7 @@ public class IProjectMemberService implements ProjectMemberService {
         Project project = requireProject(projectId);
         requireCanManageMembers(project, requestingUser);
 
-        int rows = projectMemberDao.delete(projectId, userId);
+        int rows = projectMemberDao.deleteMember(projectId, userId);
         if (rows == 0) {
             throw new ResourceNotFoundException("User id=" + userId + " is not a member of project id=" + projectId);
         }
@@ -78,7 +78,7 @@ public class IProjectMemberService implements ProjectMemberService {
     }
 
     private Project requireProject(int projectId) throws SQLException {
-        Project project = projectDao.findById(projectId);
+        Project project = projectDao.findByProjectId(projectId);
         if (project == null) {
             throw new ResourceNotFoundException("No project found with id " + projectId);
         }

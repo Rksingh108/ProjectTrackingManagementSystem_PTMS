@@ -15,23 +15,18 @@ public class IProjectMemberDao implements ProjectMemberDao {
 
     private static final Logger logger = Logger.getLogger(IProjectMemberDao.class.getName());
 
-    private final String insertProjectMember =
-            "INSERT INTO project_members (project_id, user_id, role_in_project) VALUES (?, ?, ?)";
+    private final String insertProjectMember = "INSERT INTO project_members (project_id, user_id, role_in_project) VALUES (?, ?, ?)";
 
-    private final String findMembersByProjectId =
-            "SELECT * FROM project_members WHERE project_id = ? ORDER BY joined_at";
+    private final String findMembersByProjectId = "SELECT * FROM project_members WHERE project_id = ? ORDER BY joined_at";
 
-    private final String findMembersByUserId =
-            "SELECT * FROM project_members WHERE user_id = ? ORDER BY joined_at";
+    private final String findMembersByUserId = "SELECT * FROM project_members WHERE user_id = ? ORDER BY joined_at";
 
-    private final String updateProjectMemberRole =
-            "UPDATE project_members SET role_in_project = ? WHERE project_id = ? AND user_id = ?";
+    private final String updateProjectMemberRole = "UPDATE project_members SET role_in_project = ? WHERE project_id = ? AND user_id = ?";
 
-    private final String deleteProjectMember =
-            "DELETE FROM project_members WHERE project_id = ? AND user_id = ?";
+    private final String deleteProjectMember = "DELETE FROM project_members WHERE project_id = ? AND user_id = ?";
 
     @Override
-    public int insert(ProjectMember member) throws SQLException {
+    public int insertMember(ProjectMember member) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(insertProjectMember)) {
 
@@ -115,7 +110,7 @@ public class IProjectMemberDao implements ProjectMemberDao {
     }
 
     @Override
-    public int delete(int projectId, int userId) throws SQLException {
+    public int deleteMember(int projectId, int userId) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(deleteProjectMember)) {
 
