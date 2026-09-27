@@ -13,12 +13,8 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Scanner;
-import java.util.logging.Logger;
 
 public class ProjectController {
-
-    private static final Logger logger =
-            Logger.getLogger(ProjectController.class.getName());
 
     private final ProjectService projectService;
     private final Scanner scanner;
@@ -37,54 +33,92 @@ public class ProjectController {
         boolean running = true;
 
         while (running) {
-            logger.info("""
-                    
-                    --- Project Management ---
-                    1. Create project
-                    2. View my projects
-                    3. View all projects
-                    4. View project details
-                    5. Assign team lead
-                    6. Update project
-                    7. Delete project
-                    0. Back
-                    """);
-
-            System.out.print("Choose an option: ");
-
+            printMenu(loggedInUser);
             String choice = scanner.nextLine().trim();
 
             try {
                 switch (choice) {
-                    case "1" -> createProject(loggedInUser);
-                    case "2" -> viewMyProjects(loggedInUser);
-                    case "3" -> viewAllProjects();
-                    case "4" -> viewProjectDetails();
-                    case "5" -> assignTeamLead(loggedInUser);
-                    case "6" -> updateProject(loggedInUser);
-                    case "7" -> deleteProject(loggedInUser);
-                    case "0" -> running = false;
-                    default -> logger.warning(
-                            "Invalid option, try again."
-                    );
+                    case "1":
+                        createProject(loggedInUser);
+                        break;
+                    case "2":
+                        viewMyProjects(loggedInUser);
+                        break;
+                    case "3":
+                        viewAllProjects(loggedInUser);
+                        break;
+                    case "4":
+                        viewProjectDetails(loggedInUser);
+                        break;
+                    case "5":
+                        assignTeamLead(loggedInUser);
+                        break;
+                    case "6":
+                        updateProject(loggedInUser);
+                        break;
+                    case "7":
+                        deleteProject(loggedInUser);
+                        break;
+                    case "0":
+                        running = false;
+                        break;
+                    default:
+                        System.out.println("Invalid option.");
                 }
-            } catch (UnauthorizedException |
-                     ValidationException |
-                     ResourceNotFoundException e) {
-
-                logger.warning("Error: " + e.getMessage());
-
+            } catch (UnauthorizedException | ValidationException | ResourceNotFoundException e) {
+                System.out.println("Error: " + e.getMessage());
             } catch (SQLException e) {
-
-                logger.severe(
-                        "Database error: " + e.getMessage()
-                );
+                System.out.println("Database error: " + e.getMessage());
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
             }
         }
     }
 
-    private void createProject(User requestingUser)
-            throws SQLException {
+    private void printMenu(User user) {
+        System.out.println();
+        System.out.println("========== PROJECT MANAGEMENT ==========");
+        System.out.println("Logged in as: " + user.getUsername() + " | Role: " + user.getRole());
+        System.out.println();
+
+        switch (user.getRole()) {
+            case ADMIN:
+                System.out.println("1. Create Project");
+                System.out.println("2. View My Projects");
+                System.out.println("3. View All Projects");
+                System.out.println("4. View Project Details");
+                System.out.println("5. Assign Team Lead");
+                System.out.println("6. Update Project");
+                System.out.println("7. Delete Project");
+                break;
+
+            case PROJECT_MANAGER:
+                System.out.println("1. Create Project");
+                System.out.println("2. View My Projects");
+                System.out.println("4. View Project Details");
+                System.out.println("5. Assign Team Lead");
+                System.out.println("6. Update Project");
+                break;
+
+            case TEAM_LEAD:
+                System.out.println("2. View My Projects");
+                System.out.println("4. View Project Details");
+                break;
+
+            case TEAM_MEMBER:
+                System.out.println("2. View My Projects");
+                System.out.println("4. View Project Details");
+                break;
+        }
+
+        System.out.println("0. Back");
+        System.out.println();
+        System.out.print("Choose an option: ");
+    }
+
+    private void createProject(User requestingUser) throws SQLException {
+        System.out.println();
+        System.out.println("========== CREATE PROJECT ==========");
 
         System.out.print("Project name: ");
         String name = scanner.nextLine().trim();
@@ -96,26 +130,16 @@ public class ProjectController {
         String domain = scanner.nextLine().trim();
 
         System.out.print("Cost: ");
-        BigDecimal cost =
-                parseBigDecimalOrNull(scanner.nextLine().trim());
+        BigDecimal cost = parseBigDecimal(scanner.nextLine().trim());
 
-        System.out.print(
-                "Start date (YYYY-MM-DD, blank to skip): "
-        );
-        LocalDate startDate =
-                parseDateOrNull(scanner.nextLine().trim());
+        System.out.print("Start date (YYYY-MM-DD): ");
+        LocalDate startDate = parseDate(scanner.nextLine().trim());
 
-        System.out.print(
-                "Deadline (YYYY-MM-DD, blank to skip): "
-        );
-        LocalDate deadline =
-                parseDateOrNull(scanner.nextLine().trim());
+        System.out.print("Deadline (YYYY-MM-DD): ");
+        LocalDate deadline = parseDate(scanner.nextLine().trim());
 
-        System.out.print(
-                "Priority (LOW, MEDIUM, HIGH): "
-        );
-        String priority =
-                scanner.nextLine().trim().toUpperCase();
+        System.out.print("Priority (LOW/MEDIUM/HIGH): ");
+        String priority = scanner.nextLine().trim().toUpperCase();
 
         Project project = new Project(
                 name,
@@ -129,73 +153,65 @@ public class ProjectController {
         project.setStartDate(startDate);
         project.setDeadline(deadline);
 
-        projectService.createProject(
-                project,
-                requestingUser
-        );
+        projectService.createProject(project, requestingUser);
 
-        logger.info(
-                "Project created, id=" + project.getId()
-        );
+        System.out.println("Project created successfully.");
+        System.out.println("Project ID: " + project.getId());
     }
 
-    private void viewMyProjects(User requestingUser)
-            throws SQLException {
-
-        List<Project> projects =
-                projectService.getProjectsForUser(requestingUser);
+    private void viewMyProjects(User requestingUser) throws SQLException {
+        List<Project> projects = projectService.getProjectsForUser(requestingUser);
 
         if (projects.isEmpty()) {
-            logger.info("No projects found for you.");
+            System.out.println("No projects found.");
             return;
         }
 
-        projects.forEach(this::printProjectSummary);
+        System.out.println();
+        System.out.println("========== MY PROJECTS ==========");
+
+        projects.forEach(this::printProject);
     }
 
-    private void viewAllProjects()
-            throws SQLException {
-
-        List<Project> projects =
-                projectService.getAllProjects();
+    private void viewAllProjects(User requestingUser) throws SQLException {
+        List<Project> projects = projectService.getAllProjects(requestingUser);
 
         if (projects.isEmpty()) {
-            logger.info("No projects found.");
+            System.out.println("No projects found.");
             return;
         }
 
-        projects.forEach(this::printProjectSummary);
+        System.out.println();
+        System.out.println("========== ALL PROJECTS ==========");
+
+        projects.forEach(this::printProject);
     }
 
-    private void viewProjectDetails()
-            throws SQLException {
+    private void viewProjectDetails(User requestingUser) throws SQLException {
+        int projectId = readProjectId();
+        Project project = projectService.getProjectById(projectId, requestingUser);
 
-        System.out.print("Project id: ");
-
-        int id = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
-
-        Project project =
-                projectService.getProjectById(id);
-
-        logger.info(project.toString());
+        System.out.println();
+        System.out.println("========== PROJECT DETAILS ==========");
+        System.out.println("ID           : " + project.getId());
+        System.out.println("Name         : " + project.getName());
+        System.out.println("Requirements : " + project.getRequirements());
+        System.out.println("Manager ID   : " + project.getManagerId());
+        System.out.println("Team Lead ID : " + project.getTeamLeadId());
+        System.out.println("Client ID    : " + project.getClientId());
+        System.out.println("Domain       : " + project.getDomain());
+        System.out.println("Cost         : " + project.getCost());
+        System.out.println("Start Date   : " + project.getStartDate());
+        System.out.println("Deadline     : " + project.getDeadline());
+        System.out.println("Priority     : " + project.getPriority());
+        System.out.println("Status       : " + project.getStatus());
     }
 
-    private void assignTeamLead(User requestingUser)
-            throws SQLException {
+    private void assignTeamLead(User requestingUser) throws SQLException {
+        int projectId = readProjectId();
 
-        System.out.print("Project id: ");
-
-        int projectId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
-
-        System.out.print("Team lead user id: ");
-
-        int teamLeadId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+        System.out.print("Team Lead User ID: ");
+        int teamLeadId = Integer.parseInt(scanner.nextLine().trim());
 
         projectService.assignTeamLead(
                 projectId,
@@ -203,132 +219,130 @@ public class ProjectController {
                 requestingUser
         );
 
-        logger.info("Team lead assigned.");
+        System.out.println("Team Lead assigned successfully.");
     }
 
-    private void updateProject(User requestingUser)
-            throws SQLException {
+    private void updateProject(User requestingUser) throws SQLException {
+        int projectId = readProjectId();
+        Project project = projectService.getProjectById(projectId, requestingUser);
 
-        System.out.print("Project id to update: ");
+        System.out.println();
+        System.out.println("Leave blank to keep current value.");
 
-        int id = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
-
-        Project project =
-                projectService.getProjectById(id);
-
-        logger.info(
-                "Leave a field blank to keep its current value."
-        );
-
-        System.out.print(
-                "Name [" + project.getName() + "]: "
-        );
-
+        System.out.print("Name [" + project.getName() + "]: ");
         String name = scanner.nextLine().trim();
 
         if (!name.isEmpty()) {
             project.setName(name);
         }
 
-        System.out.print(
-                "Status [" + project.getStatus() + "]: "
-        );
+        System.out.print("Requirements [" + project.getRequirements() + "]: ");
+        String requirements = scanner.nextLine().trim();
 
+        if (!requirements.isEmpty()) {
+            project.setRequirements(requirements);
+        }
+
+        System.out.print("Domain [" + project.getDomain() + "]: ");
+        String domain = scanner.nextLine().trim();
+
+        if (!domain.isEmpty()) {
+            project.setDomain(domain);
+        }
+
+        System.out.print("Priority [" + project.getPriority() + "]: ");
+        String priority = scanner.nextLine().trim();
+
+        if (!priority.isEmpty()) {
+            project.setPriority(priority.toUpperCase());
+        }
+
+        System.out.print("Status [" + project.getStatus() + "]: ");
         String status = scanner.nextLine().trim();
 
         if (!status.isEmpty()) {
             project.setStatus(status);
         }
 
-        System.out.print(
-                "Priority [" + project.getPriority() + "]: "
-        );
+        System.out.print("Cost [" + project.getCost() + "]: ");
+        String costInput = scanner.nextLine().trim();
 
-        String priority = scanner.nextLine().trim();
-
-        if (!priority.isEmpty()) {
-            project.setPriority(
-                    priority.toUpperCase()
-            );
+        if (!costInput.isEmpty()) {
+            project.setCost(parseBigDecimal(costInput));
         }
 
-        projectService.updateProject(
-                project,
-                requestingUser
-        );
+        System.out.print("Start date [" + project.getStartDate() + "]: ");
+        String startDateInput = scanner.nextLine().trim();
 
-        logger.info("Project updated.");
+        if (!startDateInput.isEmpty()) {
+            project.setStartDate(parseDate(startDateInput));
+        }
+
+        System.out.print("Deadline [" + project.getDeadline() + "]: ");
+        String deadlineInput = scanner.nextLine().trim();
+
+        if (!deadlineInput.isEmpty()) {
+            project.setDeadline(parseDate(deadlineInput));
+        }
+
+        projectService.updateProject(project, requestingUser);
+
+        System.out.println("Project updated successfully.");
     }
 
-    private void deleteProject(User requestingUser)
-            throws SQLException {
+    private void deleteProject(User requestingUser) throws SQLException {
+        int projectId = readProjectId();
 
-        System.out.print("Project id to delete: ");
+        System.out.print("Are you sure? (yes/no): ");
+        String confirmation = scanner.nextLine().trim().toLowerCase();
 
-        int id = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+        if (!confirmation.equals("yes")) {
+            System.out.println("Delete cancelled.");
+            return;
+        }
 
-        projectService.deleteProject(
-                id,
-                requestingUser
-        );
+        projectService.deleteProject(projectId, requestingUser);
 
-        logger.info("Project deleted.");
+        System.out.println("Project deleted successfully.");
     }
 
-    private BigDecimal parseBigDecimalOrNull(String input) {
+    private int readProjectId() {
+        System.out.print("Project ID: ");
+        return Integer.parseInt(scanner.nextLine().trim());
+    }
 
+    private BigDecimal parseBigDecimal(String input) {
         if (input.isEmpty()) {
             return null;
         }
 
         try {
             return new BigDecimal(input);
-
         } catch (NumberFormatException e) {
-
-            logger.warning(
-                    "Not a valid number, leaving cost blank."
-            );
-
-            return null;
+            throw new ValidationException("Cost must be a valid number.");
         }
     }
 
-    private LocalDate parseDateOrNull(String input) {
-
+    private LocalDate parseDate(String input) {
         if (input.isEmpty()) {
             return null;
         }
 
         try {
             return LocalDate.parse(input);
-
         } catch (Exception e) {
-
-            logger.warning(
-                    "Not a valid date. Expected YYYY-MM-DD, leaving blank."
-            );
-
-            return null;
+            throw new ValidationException("Date must use YYYY-MM-DD format.");
         }
     }
 
-    private void printProjectSummary(Project project) {
-
-        logger.info(
-                String.format(
-                        "id=%d | %s | manager=%d | teamLead=%s | status=%s | priority=%s",
-                        project.getId(),
-                        project.getName(),
-                        project.getManagerId(),
-                        project.getTeamLeadId(),
-                        project.getStatus(),
-                        project.getPriority()
-                )
-        );
+    private void printProject(Project project) {
+        System.out.println("----------------------------------------");
+        System.out.println("ID          : " + project.getId());
+        System.out.println("Name        : " + project.getName());
+        System.out.println("Manager ID  : " + project.getManagerId());
+        System.out.println("Team Lead   : " + project.getTeamLeadId());
+        System.out.println("Client ID   : " + project.getClientId());
+        System.out.println("Status      : " + project.getStatus());
+        System.out.println("Priority    : " + project.getPriority());
     }
 }

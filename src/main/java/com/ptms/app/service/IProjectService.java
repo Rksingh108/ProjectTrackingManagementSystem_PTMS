@@ -16,11 +16,8 @@ import com.ptms.app.model.User;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class IProjectService implements ProjectService {
-
-    private static final Logger logger = Logger.getLogger(IProjectService.class.getName());
 
     private final ProjectDao projectDao;
     private final ProjectMemberDao projectMemberDao;
@@ -32,114 +29,347 @@ public class IProjectService implements ProjectService {
         this.userDao = new IUserDao();
     }
 
-    public IProjectService(ProjectDao projectDao, ProjectMemberDao projectMemberDao, UserDao userDao) {
+    public IProjectService(
+            ProjectDao projectDao,
+            ProjectMemberDao projectMemberDao,
+            UserDao userDao
+    ) {
         this.projectDao = projectDao;
         this.projectMemberDao = projectMemberDao;
         this.userDao = userDao;
     }
 
     @Override
-    public Project createProject(Project project, User requestingUser) throws SQLException {
-        if (requestingUser.getRole() != User.Role.ADMIN && requestingUser.getRole() != User.Role.PROJECT_MANAGER) {
-            throw new UnauthorizedException("Only an Admin or Project Manager can create a project.");
-        }
+    public Project createProject(
+            Project project,
+            User requestingUser
+    ) throws SQLException {
+        requireRole(
+                requestingUser,
+                User.Role.ADMIN,
+                User.Role.PROJECT_MANAGER
+        );
+
+        validateProject(project);
 
         if (project.getManagerId() == null) {
             project.setManagerId(requestingUser.getId());
         }
+
+        if (requestingUser.getRole() == User.Role.PROJECT_MANAGER
+                && project.getManagerId() != requestingUser.getId()) {
+            throw new UnauthorizedException(
+                    "A Project Manager can only create projects for themselves."
+            );
+        }
+
         projectDao.insertProject(project);
 
-        ProjectMember creatorMembership = new ProjectMember(project.getId(), project.getManagerId(), "PROJECT_MANAGER");
-        projectMemberDao.insertMember(creatorMembership);
+        ProjectMember managerMembership = new ProjectMember(
+                project.getId(),
+                project.getManagerId(),
+                "PROJECT_MANAGER"
+        );
 
-        logger.info("Project created: " + project.getName() + " (id=" + project.getId() + ") by user id=" + requestingUser.getId());
+        projectMemberDao.insertMember(managerMembership);
+
         return project;
     }
 
     @Override
-    public Project getProjectById(int id) throws SQLException {
-        Project project = projectDao.findByProjectId(id);
-        if (project == null) {
-            throw new ResourceNotFoundException("No project found with id " + id);
+    public Project getProjectById(
+            int projectId,
+            User requestingUser
+    ) throws SQLException {
+        Project project = findProject(projectId);
+
+        if (!canViewProject(project, requestingUser)) {
+            throw new UnauthorizedException(
+                    "You are not authorized to view this project."
+            );
         }
+
         return project;
     }
 
     @Override
-    public List<Project> getAllProjects() throws SQLException {
+    public List<Project> getAllProjects(User requestingUser) throws SQLException {
+        if (requestingUser.getRole() != User.Role.ADMIN) {
+            throw new UnauthorizedException(
+                    "Only Admin can view all projects."
+            );
+        }
+
         return projectDao.findAll();
     }
 
     @Override
-    public List<Project> getProjectsForUser(User user) throws SQLException {
-        switch (user.getRole()) {
+    public List<Project> getProjectsForUser(User requestingUser) throws SQLException {
+        switch (requestingUser.getRole()) {
             case ADMIN:
                 return projectDao.findAll();
+
             case PROJECT_MANAGER:
-                return projectDao.findByManagerId(user.getId());
+                return projectDao.findByManagerId(requestingUser.getId());
+
             case TEAM_LEAD:
-                return projectDao.findByTeamLeadId(user.getId());
+                return projectDao.findByTeamLeadId(requestingUser.getId());
+
             case TEAM_MEMBER:
-            default:
-                List<ProjectMember> memberships = projectMemberDao.findByUserId(user.getId());
+                List<ProjectMember> memberships =
+                        projectMemberDao.findByUserId(requestingUser.getId());
+
                 List<Project> projects = new ArrayList<>();
+
                 for (ProjectMember membership : memberships) {
-                    Project project = projectDao.findByProjectId(membership.getProjectId());
+                    Project project =
+                            projectDao.findByProjectId(membership.getProjectId());
+
                     if (project != null) {
                         projects.add(project);
                     }
                 }
+
                 return projects;
+
+            default:
+                throw new UnauthorizedException("Invalid user role.");
         }
     }
 
     @Override
-    public void assignTeamLead(int projectId, int teamLeadUserId, User requestingUser) throws SQLException {
-        if (requestingUser.getRole() != User.Role.ADMIN && requestingUser.getRole() != User.Role.PROJECT_MANAGER) {
-            throw new UnauthorizedException("Only an Admin or Project Manager can assign a team lead.");
-        }
-        User candidate = userDao.findByUserId(teamLeadUserId);
-        if (candidate == null) {
-            throw new ResourceNotFoundException("No user found with id " + teamLeadUserId);
-        }
-        if (candidate.getRole() != User.Role.TEAM_LEAD) {
-            throw new ValidationException("User id=" + teamLeadUserId + " does not have the TEAM_LEAD role.");
+    public void assignTeamLead(
+            int projectId,
+            int teamLeadUserId,
+            User requestingUser
+    ) throws SQLException {
+        requireRole(
+                requestingUser,
+                User.Role.ADMIN,
+                User.Role.PROJECT_MANAGER
+        );
+
+        Project project = findProject(projectId);
+
+        if (requestingUser.getRole() == User.Role.PROJECT_MANAGER
+                && !isProjectManager(project, requestingUser)) {
+            throw new UnauthorizedException(
+                    "You can assign a Team Lead only to your own project."
+            );
         }
 
-        Project project = getProjectById(projectId);
+        User teamLead = userDao.findByUserId(teamLeadUserId);
+
+        if (teamLead == null) {
+            throw new ResourceNotFoundException(
+                    "Team Lead user not found: " + teamLeadUserId
+            );
+        }
+
+        if (teamLead.getRole() != User.Role.TEAM_LEAD) {
+            throw new ValidationException(
+                    "Selected user is not a TEAM_LEAD."
+            );
+        }
+
         project.setTeamLeadId(teamLeadUserId);
         projectDao.updateProject(project);
 
-        if (projectMemberDao.findByProjectId(projectId).stream().noneMatch(m -> m.getUserId().equals(teamLeadUserId))) {
-            projectMemberDao.insertMember(new ProjectMember(projectId, teamLeadUserId, "TEAM_LEAD"));
-        }
+        List<ProjectMember> members =
+                projectMemberDao.findByProjectId(projectId);
 
-        logger.info("Team lead assigned: userId=" + teamLeadUserId + " to projectId=" + projectId);
+        boolean alreadyMember = members.stream()
+                .anyMatch(member ->
+                        member.getUserId().equals(teamLeadUserId));
+
+        if (!alreadyMember) {
+            ProjectMember member = new ProjectMember(
+                    projectId,
+                    teamLeadUserId,
+                    "TEAM_LEAD"
+            );
+
+            projectMemberDao.insertMember(member);
+        }
     }
 
     @Override
-    public void updateProject(Project project, User requestingUser) throws SQLException {
-        if (requestingUser.getRole() != User.Role.ADMIN
-                && !(requestingUser.getRole() == User.Role.PROJECT_MANAGER
-                && project.getManagerId().equals(requestingUser.getId()))) {
-            throw new UnauthorizedException("Only an Admin, or the managing Project Manager, can update this project.");
+    public void updateProject(
+            Project project,
+            User requestingUser
+    ) throws SQLException {
+        Project existing = findProject(project.getId());
+
+        if (requestingUser.getRole() == User.Role.ADMIN) {
+            validateProject(project);
+
+            int rows = projectDao.updateProject(project);
+
+            if (rows == 0) {
+                throw new ResourceNotFoundException(
+                        "Project could not be updated."
+                );
+            }
+
+            return;
         }
-        int rows = projectDao.updateProject(project);
-        if (rows == 0) {
-            throw new ResourceNotFoundException("No project found with id " + project.getId() + " to update.");
+
+        if (requestingUser.getRole() == User.Role.PROJECT_MANAGER) {
+            if (!isProjectManager(existing, requestingUser)) {
+                throw new UnauthorizedException(
+                        "You can update only your own projects."
+                );
+            }
+
+            project.setManagerId(existing.getManagerId());
+
+            int rows = projectDao.updateProject(project);
+
+            if (rows == 0) {
+                throw new ResourceNotFoundException(
+                        "Project could not be updated."
+                );
+            }
+
+            return;
         }
-        logger.info("Project updated id=" + project.getId() + " by user id=" + requestingUser.getId());
+
+        throw new UnauthorizedException(
+                "You are not authorized to update projects."
+        );
     }
 
     @Override
-    public void deleteProject(int id, User requestingUser) throws SQLException {
+    public void deleteProject(
+            int projectId,
+            User requestingUser
+    ) throws SQLException {
         if (requestingUser.getRole() != User.Role.ADMIN) {
-            throw new UnauthorizedException("Only an Admin can delete a project.");
+            throw new UnauthorizedException(
+                    "Only Admin can delete projects."
+            );
         }
-        int rows = projectDao.deleteProject(id);
+
+        findProject(projectId);
+
+        int rows = projectDao.deleteProject(projectId);
+
         if (rows == 0) {
-            throw new ResourceNotFoundException("No project found with id " + id + " to delete.");
+            throw new ResourceNotFoundException(
+                    "Project could not be deleted."
+            );
         }
-        logger.info("Project deleted id=" + id + " by admin id=" + requestingUser.getId());
+    }
+
+    private Project findProject(int projectId) throws SQLException {
+        if (projectId <= 0) {
+            throw new ValidationException(
+                    "Project ID must be greater than zero."
+            );
+        }
+
+        Project project = projectDao.findByProjectId(projectId);
+
+        if (project == null) {
+            throw new ResourceNotFoundException(
+                    "No project found with id " + projectId
+            );
+        }
+
+        return project;
+    }
+
+    private boolean isProjectManager(Project project, User user) {
+        return project.getManagerId() != null
+                && project.getManagerId() == user.getId();
+    }
+
+    private boolean canViewProject(
+            Project project,
+            User user
+    ) throws SQLException {
+        switch (user.getRole()) {
+            case ADMIN:
+                return true;
+
+            case PROJECT_MANAGER:
+                return isProjectManager(project, user);
+
+            case TEAM_LEAD:
+                return project.getTeamLeadId() != null
+                        && project.getTeamLeadId() == user.getId();
+
+            case TEAM_MEMBER:
+                List<ProjectMember> members =
+                        projectMemberDao.findByProjectId(project.getId());
+
+                return members.stream()
+                        .anyMatch(member ->
+                                member.getUserId().equals(user.getId()));
+
+            default:
+                return false;
+        }
+    }
+
+    private void requireRole(
+            User user,
+            User.Role... allowedRoles
+    ) {
+        for (User.Role role : allowedRoles) {
+            if (user.getRole() == role) {
+                return;
+            }
+        }
+
+        throw new UnauthorizedException(
+                "You are not authorized to perform this operation."
+        );
+    }
+
+    private void validateProject(Project project) {
+        if (project == null) {
+            throw new ValidationException("Project cannot be null.");
+        }
+
+        if (project.getName() == null || project.getName().isBlank()) {
+            throw new ValidationException("Project name is required.");
+        }
+
+        if (project.getName().length() > 100) {
+            throw new ValidationException(
+                    "Project name cannot exceed 100 characters."
+            );
+        }
+
+        if (project.getPriority() == null || project.getPriority().isBlank()) {
+            throw new ValidationException("Project priority is required.");
+        }
+
+        String priority = project.getPriority().trim().toUpperCase();
+
+        if (!priority.equals("LOW")
+                && !priority.equals("MEDIUM")
+                && !priority.equals("HIGH")) {
+            throw new ValidationException(
+                    "Priority must be LOW, MEDIUM or HIGH."
+            );
+        }
+
+        project.setPriority(priority);
+
+        if (project.getCost() != null && project.getCost().signum() < 0) {
+            throw new ValidationException(
+                    "Project cost cannot be negative."
+            );
+        }
+
+        if (project.getStartDate() != null
+                && project.getDeadline() != null
+                && project.getDeadline().isBefore(project.getStartDate())) {
+            throw new ValidationException(
+                    "Deadline cannot be before start date."
+            );
+        }
     }
 }

@@ -16,35 +16,50 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         UserController userController = new UserController();
+        boolean applicationRunning = true;
 
-        User loggedInUser = null;
+        while (applicationRunning) {
+            User loggedInUser = null;
 
-        while (loggedInUser == null) {
-            System.out.println("\n=== PTMS ===");
-            System.out.println("1. Login");
-            System.out.println("2. Register");
-            System.out.println("0. Exit");
-            System.out.print("Choose an option: ");
+            while (loggedInUser == null) {
+                System.out.println();
+                System.out.println("======================================");
+                System.out.println("       PROJECT TRACKING SYSTEM");
+                System.out.println("======================================");
+                System.out.println("0. Close Application");
+                System.out.println("1. Login");
+                System.out.println("2. Register");
+                System.out.println("======================================");
+                System.out.print("Choose an option: ");
 
-            String choice = scanner.nextLine().trim();
-            try {
-                switch (choice) {
-                    case "1" -> loggedInUser = userController.login();
-                    case "2" -> loggedInUser = userController.registerUser();
-                    case "0" -> {
-                        System.out.println("Goodbye.");
-                        return;
+                String choice = scanner.nextLine().trim();
+
+                try {
+                    switch (choice) {
+                        case "1" -> loggedInUser = userController.login();
+
+                        case "2" -> loggedInUser = userController.registerUser();
+
+                        case "0" -> {
+                            System.out.println("Thank you. Visit again.");
+                            applicationRunning = false;
+                            loggedInUser = null;
+                        }
+
+                        default -> System.out.println("Invalid option.");
                     }
-                    default -> System.out.println("Invalid option, try again.");
+                } catch (SQLException e) {
+                    System.out.println("Database error: " + e.getMessage());
+                    System.out.println("Check DBConnection, db.properties and MySQL.");
                 }
-            } catch (SQLException e) {
-                System.out.println("Database error: " + e.getMessage());
-                System.out.println("Check DBConnection / db.properties and that MySQL is running.");
+            }
+
+            if (applicationRunning && loggedInUser != null) {
+                showDashboard(loggedInUser, userController, scanner);
             }
         }
 
-        // Once logged in, hand off to a main dashboard offering each area.
-        showDashboard(loggedInUser, userController, scanner);
+        scanner.close();
     }
 
     private static void showDashboard(User loggedInUser, UserController userController, Scanner scanner) {
@@ -56,29 +71,44 @@ public class Main {
         boolean running = true;
 
         while (running) {
-            System.out.println("\n=== Dashboard (" + loggedInUser.getUsername() + " / " + loggedInUser.getRole() + ") ===");
+            System.out.println();
+            System.out.println("======================================");
+            System.out.println("           PTMS DASHBOARD");
+            System.out.println("======================================");
+            System.out.println("Logged in as : " + loggedInUser.getUsername());
+            System.out.println("Role         : " + loggedInUser.getRole());
+            System.out.println("--------------------------------------");
+            System.out.println("0. Logout");
             System.out.println("1. User Management");
             System.out.println("2. Client Management");
             System.out.println("3. Project Management");
             System.out.println("4. Project Members");
             System.out.println("5. Ticket Management");
-            System.out.println("6. Ticket Tracking (view only)");
-            System.out.println("0. Logout");
+            System.out.println("6. Ticket Tracking");
+            System.out.println("======================================");
             System.out.print("Choose an option: ");
 
             String choice = scanner.nextLine().trim();
+
             switch (choice) {
                 case "1" -> userController.showMenu(loggedInUser);
+
                 case "2" -> clientController.showMenu(loggedInUser);
+
                 case "3" -> projectController.showMenu(loggedInUser);
+
                 case "4" -> projectMemberController.showMenu(loggedInUser);
+
                 case "5" -> ticketController.showMenu(loggedInUser);
+
                 case "6" -> ticketTrackingController.showMenu(loggedInUser);
+
                 case "0" -> {
-                    System.out.println("Logged out.");
+                    System.out.println("Logged out successfully.");
                     running = false;
                 }
-                default -> System.out.println("Invalid option, try again.");
+
+                default -> System.out.println("Invalid option.");
             }
         }
     }

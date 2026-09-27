@@ -3,6 +3,7 @@ package com.ptms.app.service;
 import com.ptms.app.dao.ITicketTrackingDao;
 import com.ptms.app.dao.TicketTrackingDao;
 import com.ptms.app.exception.ResourceNotFoundException;
+import com.ptms.app.exception.ValidationException;
 import com.ptms.app.model.TicketTracking;
 
 import java.sql.SQLException;
@@ -22,15 +23,30 @@ public class ITicketTrackingService implements TicketTrackingService {
 
     @Override
     public TicketTracking getTrackingForTicket(int ticketId) throws SQLException {
+        validateId(ticketId, "Ticket ID");
+
         TicketTracking tracking = ticketTrackingDao.findByTicketId(ticketId);
+
         if (tracking == null) {
-            throw new ResourceNotFoundException("No tracking record found for ticket id " + ticketId);
+            throw new ResourceNotFoundException(
+                    "No tracking record found for ticket ID " + ticketId
+            );
         }
+
         return tracking;
     }
 
     @Override
     public List<TicketTracking> getUpdatesByUser(int userId) throws SQLException {
+        validateId(userId, "User ID");
         return ticketTrackingDao.findByUpdatedBy(userId);
+    }
+
+    private void validateId(int id, String fieldName) {
+        if (id <= 0) {
+            throw new ValidationException(
+                    fieldName + " must be greater than 0."
+            );
+        }
     }
 }

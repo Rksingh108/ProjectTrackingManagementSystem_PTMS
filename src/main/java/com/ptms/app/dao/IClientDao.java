@@ -16,102 +16,128 @@ public class IClientDao implements ClientDao {
 
     private static final Logger logger = Logger.getLogger(IClientDao.class.getName());
 
-    private final String insertClient = "INSERT INTO clients (name, email, phone, company_name) VALUES (?, ?, ?, ?)";
-    private final String findClientById = "SELECT * FROM clients WHERE id = ?";
-    private final String findAllClients = "SELECT * FROM clients ORDER BY id";
-    private final String searchClientByName = "SELECT * FROM clients WHERE name LIKE ? OR company_name LIKE ? ORDER BY id";
-    private final String updateClient = "UPDATE clients SET name = ?, email = ?, phone = ?, company_name = ? WHERE id = ?";
-    private final String deleteClient = "DELETE FROM clients WHERE id = ?";
+    private static final String INSERT_CLIENT = "INSERT INTO clients (name, email, phone, company_name) VALUES (?, ?, ?, ?)";
+
+    private static final String FIND_BY_ID = "SELECT id, name, email, phone, company_name " +
+                    "FROM clients WHERE id = ?";
+
+    private static final String FIND_ALL = "SELECT id, name, email, phone, company_name " +
+                    "FROM clients ORDER BY id DESC";
+
+    private static final String SEARCH_CLIENTS = "SELECT id, name, email, phone, company_name " +
+                    "FROM clients " +
+                    "WHERE name LIKE ? " +
+                    "OR email LIKE ? " +
+                    "OR phone LIKE ? " +
+                    "OR company_name LIKE ? " +
+                    "ORDER BY id DESC";
+
+    private static final String UPDATE_CLIENT = "UPDATE clients " +
+                    "SET name = ?, email = ?, phone = ?, company_name = ? " +
+                    "WHERE id = ?";
+
+    private static final String DELETE_CLIENT = "DELETE FROM clients WHERE id = ?";
+
+    private static final String COUNT_CLIENTS = "SELECT COUNT(*) FROM clients";
+
+    private static final String COUNT_COMPANIES = "SELECT COUNT(DISTINCT company_name) " +
+                    "FROM clients " +
+                    "WHERE company_name IS NOT NULL " +
+                    "AND TRIM(company_name) <> ''";
 
     @Override
     public int insertClient(Client client) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(insertClient, Statement.RETURN_GENERATED_KEYS)) {
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     INSERT_CLIENT,
+                     Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, client.getName());
             ps.setString(2, client.getEmail());
             ps.setString(3, client.getPhone());
             ps.setString(4, client.getCompanyName());
 
-            int count = ps.executeUpdate();
-            if (count > 0) {
-                try (ResultSet keys = ps.getGeneratedKeys()) {
-                    if (keys.next()) {
-                        client.setId(keys.getInt(1));
+            int rows = ps.executeUpdate();
+
+            if (rows > 0) {
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        client.setId(rs.getInt(1));
                     }
                 }
-                logger.info("Client inserted successfully, id=" + client.getId());
             }
-            return count;
 
-        } catch (SQLException e) {
-            logger.severe("Failed to insert client name=" + client.getName() + " : " + e.getMessage());
-            throw e;
+            return rows;
         }
     }
 
     @Override
     public Client findByClientId(int id) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findClientById)) {
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(FIND_BY_ID)) {
 
             ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
-            }
 
-        } catch (SQLException e) {
-            logger.severe("Failed to fetch client id=" + id + " : " + e.getMessage());
-            throw e;
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+            }
         }
+
+        return null;
     }
 
     @Override
     public List<Client> findAll() throws SQLException {
+
         List<Client> clients = new ArrayList<>();
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findAllClients);
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(FIND_ALL);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 clients.add(mapRow(rs));
             }
-            return clients;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to fetch all clients : " + e.getMessage());
-            throw e;
         }
+
+        return clients;
     }
 
     @Override
-    public List<Client> searchByClientName(String keyword) throws SQLException {
+    public List<Client> searchClients(String keyword) throws SQLException {
+
         List<Client> clients = new ArrayList<>();
-        String likePattern = "%" + keyword + "%";
 
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(searchClientByName)) {
+        String pattern = "%" + keyword + "%";
 
-            ps.setString(1, likePattern);
-            ps.setString(2, likePattern);
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(SEARCH_CLIENTS)) {
+
+            ps.setString(1, pattern);
+            ps.setString(2, pattern);
+            ps.setString(3, pattern);
+            ps.setString(4, pattern);
 
             try (ResultSet rs = ps.executeQuery()) {
+
                 while (rs.next()) {
                     clients.add(mapRow(rs));
                 }
             }
-            return clients;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to search clients keyword=" + keyword + " : " + e.getMessage());
-            throw e;
         }
+
+        return clients;
     }
 
     @Override
     public int updateClient(Client client) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(updateClient)) {
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(UPDATE_CLIENT)) {
 
             ps.setString(1, client.getName());
             ps.setString(2, client.getEmail());
@@ -119,43 +145,62 @@ public class IClientDao implements ClientDao {
             ps.setString(4, client.getCompanyName());
             ps.setInt(5, client.getId());
 
-            int count = ps.executeUpdate();
-            if (count > 0) {
-                logger.info("Client updated successfully, id=" + client.getId());
-            }
-            return count;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to update client id=" + client.getId() + " : " + e.getMessage());
-            throw e;
+            return ps.executeUpdate();
         }
     }
 
     @Override
     public int deleteClient(int id) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(deleteClient)) {
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(DELETE_CLIENT)) {
 
             ps.setInt(1, id);
-            int count = ps.executeUpdate();
-            if (count > 0) {
-                logger.info("Client deleted successfully, id=" + id);
-            }
-            return count;
 
-        } catch (SQLException e) {
-            logger.severe("Failed to delete client id=" + id + " : " + e.getMessage());
-            throw e;
+            return ps.executeUpdate();
         }
     }
 
+    @Override
+    public int countClients() throws SQLException {
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(COUNT_CLIENTS);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }
+
+        return 0;
+    }
+
+    @Override
+    public int countCompanies() throws SQLException {
+
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(COUNT_COMPANIES);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }
+
+        return 0;
+    }
+
     private Client mapRow(ResultSet rs) throws SQLException {
+
         Client client = new Client();
+
         client.setId(rs.getInt("id"));
         client.setName(rs.getString("name"));
         client.setEmail(rs.getString("email"));
         client.setPhone(rs.getString("phone"));
         client.setCompanyName(rs.getString("company_name"));
+
         return client;
     }
 }

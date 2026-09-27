@@ -3,42 +3,56 @@ package com.ptms.app.dao;
 import com.ptms.app.model.User;
 import com.ptms.app.util.DBConnection;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
 public class IUserDao implements UserDao {
 
-    private static final Logger logger = Logger.getLogger(IUserDao.class.getName());
+    private static final Logger logger =
+            Logger.getLogger(IUserDao.class.getName());
 
-    private final String insertUser = "INSERT INTO users (first_name, last_name, username, email, password, " +
-                    "role_name, date_of_birth, mobile_number, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String INSERT = "INSERT INTO users " +
+            "(first_name, last_name, username, email, password, " +
+            "role_name, date_of_birth, mobile_number, gender) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    private final String findUserById = "SELECT * FROM users WHERE id = ?";
+    private static final String FIND_BY_ID = "SELECT * FROM users WHERE id = ?";
 
-    private final String findUserByUsername = "SELECT * FROM users WHERE username = ?";
+    private static final String FIND_BY_USERNAME = "SELECT * FROM users WHERE username = ?";
 
-    private final String findAllUsers = "SELECT * FROM users ORDER BY id";
+    private static final String FIND_BY_EMAIL = "SELECT * FROM users WHERE email = ?";
 
-    private final String searchUserByName = "SELECT * FROM users WHERE first_name LIKE ? OR last_name LIKE ? OR username LIKE ? ORDER BY id";
+    private static final String FIND_ALL = "SELECT * FROM users ORDER BY id";
 
-    private final String findUserByRole = "SELECT * FROM users WHERE role_name = ? ORDER BY id";
+    private static final String SEARCH = "SELECT * FROM users " +
+            "WHERE first_name LIKE ? " +
+            "OR last_name LIKE ? " +
+            "OR username LIKE ? " +
+            "ORDER BY id";
 
-    private final String updateUser = "UPDATE users SET first_name = ?, last_name = ?, email = ?, role_name = ?, " +
-                    "date_of_birth = ?, mobile_number = ?, gender = ? WHERE id = ?";
+    private static final String FIND_BY_ROLE =
+            "SELECT * FROM users WHERE role_name = ? ORDER BY id";
 
-    private final String deleteUser = "DELETE FROM users WHERE id = ?";
+    private static final String UPDATE_PROFILE = "UPDATE users SET " +
+            "first_name = ?, last_name = ?, email = ?, " +
+            "date_of_birth = ?, mobile_number = ?, gender = ? " +
+            "WHERE id = ?";
+
+    private static final String UPDATE_ROLE =
+            "UPDATE users SET role_name = ? WHERE id = ?";
+
+    private static final String DELETE =
+            "DELETE FROM users WHERE id = ?";
 
     @Override
     public int insertUser(User user) throws SQLException {
+
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     insertUser, Statement.RETURN_GENERATED_KEYS)) {
+                     INSERT,
+                     Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, user.getFirstName());
             ps.setString(2, user.getLastName());
@@ -50,209 +64,193 @@ public class IUserDao implements UserDao {
             ps.setString(8, user.getMobileNumber());
             ps.setString(9, user.getGender());
 
-            int count = ps.executeUpdate();
+            int rows = ps.executeUpdate();
 
-            if (count > 0) {
-                try (ResultSet keys = ps.getGeneratedKeys()) {
-                    if (keys.next()) {
-                        user.setId(keys.getInt(1));
+            if (rows > 0) {
+
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+
+                    if (rs.next()) {
+                        user.setId(rs.getInt(1));
                     }
                 }
-
-                logger.info("User inserted successfully, id=" + user.getId());
             }
 
-            return count;
-
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to insert user username=" +
-                            user.getUsername() + " : " + e.getMessage()
-            );
-            throw e;
+            return rows;
         }
     }
 
     @Override
     public User findByUserId(int id) throws SQLException {
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findUserById)) {
+             PreparedStatement ps = conn.prepareStatement(FIND_BY_ID)) {
 
             ps.setInt(1, id);
 
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
-            }
 
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to fetch user id=" +
-                            id + " : " + e.getMessage()
-            );
-            throw e;
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+
+                return null;
+            }
         }
     }
 
     @Override
-    public User findByUsername(String username) throws SQLException {
+    public User findByUsername(String username)
+            throws SQLException {
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findUserByUsername)) {
+             PreparedStatement ps = conn.prepareStatement(FIND_BY_USERNAME)) {
 
             ps.setString(1, username);
 
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
-            }
 
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to fetch user username=" +
-                            username + " : " + e.getMessage()
-            );
-            throw e;
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+
+                return null;
+            }
+        }
+    }
+
+    @Override
+    public User findByEmail(String email)
+            throws SQLException {
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(FIND_BY_EMAIL)) {
+
+            ps.setString(1, email);
+
+            try (ResultSet rs = ps.executeQuery()) {
+
+                if (rs.next()) {
+                    return mapRow(rs);
+                }
+
+                return null;
+            }
         }
     }
 
     @Override
     public List<User> findAll() throws SQLException {
+
         List<User> users = new ArrayList<>();
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findAllUsers);
+             PreparedStatement ps = conn.prepareStatement(FIND_ALL);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 users.add(mapRow(rs));
             }
-
-            return users;
-
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to fetch all users : " +
-                            e.getMessage()
-            );
-            throw e;
         }
+
+        return users;
     }
 
     @Override
-    public List<User> searchByUserName(String keyword) throws SQLException {
+    public List<User> searchByUserName(String keyword)
+            throws SQLException {
+
         List<User> users = new ArrayList<>();
 
-        String likePattern = "%" + keyword + "%";
+        String pattern = "%" + keyword + "%";
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(searchUserByName)) {
+             PreparedStatement ps = conn.prepareStatement(SEARCH)) {
 
-            ps.setString(1, likePattern);
-            ps.setString(2, likePattern);
-            ps.setString(3, likePattern);
+            ps.setString(1, pattern);
+            ps.setString(2, pattern);
+            ps.setString(3, pattern);
 
             try (ResultSet rs = ps.executeQuery()) {
+
                 while (rs.next()) {
                     users.add(mapRow(rs));
                 }
             }
-
-            return users;
-
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to search users keyword=" +
-                            keyword + " : " + e.getMessage()
-            );
-            throw e;
         }
+
+        return users;
     }
 
     @Override
-    public List<User> findByUserRole(User.Role role) throws SQLException {
+    public List<User> findByUserRole(User.Role role)
+            throws SQLException {
+
         List<User> users = new ArrayList<>();
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findUserByRole)) {
+             PreparedStatement ps = conn.prepareStatement(FIND_BY_ROLE)) {
 
             ps.setString(1, role.name());
 
             try (ResultSet rs = ps.executeQuery()) {
+
                 while (rs.next()) {
                     users.add(mapRow(rs));
                 }
             }
-
-            return users;
-
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to fetch users by role=" +
-                            role + " : " + e.getMessage()
-            );
-            throw e;
         }
+
+        return users;
     }
 
     @Override
-    public int updateUser(User user) throws SQLException {
+    public int updateProfile(User user)
+            throws SQLException {
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(updateUser)) {
+             PreparedStatement ps = conn.prepareStatement(UPDATE_PROFILE)) {
 
             ps.setString(1, user.getFirstName());
             ps.setString(2, user.getLastName());
             ps.setString(3, user.getEmail());
-            ps.setString(4, user.getRole().name());
-            ps.setObject(5, user.getDateOfBirth());
-            ps.setString(6, user.getMobileNumber());
-            ps.setString(7, user.getGender());
-            ps.setInt(8, user.getId());
+            ps.setObject(4, user.getDateOfBirth());
+            ps.setString(5, user.getMobileNumber());
+            ps.setString(6, user.getGender());
+            ps.setInt(7, user.getId());
 
-            int count = ps.executeUpdate();
+            return ps.executeUpdate();
+        }
+    }
 
-            if (count > 0) {
-                logger.info(
-                        "User updated successfully, id=" +
-                                user.getId()
-                );
-            }
+    @Override
+    public int updateRole(int userId, User.Role role)
+            throws SQLException {
 
-            return count;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(UPDATE_ROLE)) {
 
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to update user id=" +
-                            user.getId() + " : " + e.getMessage()
-            );
-            throw e;
+            ps.setString(1, role.name());
+            ps.setInt(2, userId);
+
+            return ps.executeUpdate();
         }
     }
 
     @Override
     public int deleteUser(int id) throws SQLException {
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(deleteUser)) {
+             PreparedStatement ps = conn.prepareStatement(DELETE)) {
 
             ps.setInt(1, id);
 
-            int count = ps.executeUpdate();
-
-            if (count > 0) {
-                logger.info(
-                        "User deleted successfully, id=" + id
-                );
-            }
-
-            return count;
-
-        } catch (SQLException e) {
-            logger.severe(
-                    "Failed to delete user id=" +
-                            id + " : " + e.getMessage()
-            );
-            throw e;
+            return ps.executeUpdate();
         }
     }
 
-    private User mapRow(ResultSet rs) throws SQLException {
+    private User mapRow(ResultSet rs)
+            throws SQLException {
 
         User user = new User();
 
@@ -263,24 +261,20 @@ public class IUserDao implements UserDao {
         user.setEmail(rs.getString("email"));
         user.setPassword(rs.getString("password"));
 
-        // Case-insensitive role conversion
         user.setRole(
-                User.Role.fromString(rs.getString("role_name"))
+                User.Role.fromString(
+                        rs.getString("role_name")
+                )
         );
 
-        java.sql.Date dob = rs.getDate("date_of_birth");
+        Date dob = rs.getDate("date_of_birth");
 
-        user.setDateOfBirth(
-                dob != null ? dob.toLocalDate() : null
-        );
+        if (dob != null) {
+            user.setDateOfBirth(dob.toLocalDate());
+        }
 
-        user.setMobileNumber(
-                rs.getString("mobile_number")
-        );
-
-        user.setGender(
-                rs.getString("gender")
-        );
+        user.setMobileNumber(rs.getString("mobile_number"));
+        user.setGender(rs.getString("gender"));
 
         return user;
     }

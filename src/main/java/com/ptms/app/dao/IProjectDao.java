@@ -16,176 +16,168 @@ public class IProjectDao implements ProjectDao {
 
     private static final Logger logger = Logger.getLogger(IProjectDao.class.getName());
 
-    private final String insertProject = "INSERT INTO projects (name, requirements, manager_id, team_lead_id, client_id, domain, " +
-                    "cost, start_date, deadline, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_PROJECT = """
+            INSERT INTO projects (
+                name, requirements, manager_id, team_lead_id, client_id,
+                domain, cost, start_date, deadline, priority, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
 
-    private final String findProjectById = "SELECT * FROM projects WHERE id = ?";
+    private static final String FIND_BY_ID = "SELECT * FROM projects WHERE id = ?";
+    private static final String FIND_ALL = "SELECT * FROM projects ORDER BY id";
+    private static final String FIND_BY_MANAGER = "SELECT * FROM projects WHERE manager_id = ? ORDER BY id";
+    private static final String FIND_BY_TEAM_LEAD = "SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id";
+    private static final String FIND_BY_CLIENT = "SELECT * FROM projects WHERE client_id = ? ORDER BY id";
 
-    private final String findAllProjects = "SELECT * FROM projects ORDER BY id";
+    private static final String UPDATE_PROJECT = """
+            UPDATE projects SET
+                name = ?,
+                requirements = ?,
+                manager_id = ?,
+                team_lead_id = ?,
+                client_id = ?,
+                domain = ?,
+                cost = ?,
+                start_date = ?,
+                deadline = ?,
+                priority = ?,
+                status = ?
+            WHERE id = ?
+            """;
 
-    private final String findProjectByManagerId = "SELECT * FROM projects WHERE manager_id = ? ORDER BY id";
-
-    private final String findProjectByTeamLeadId = "SELECT * FROM projects WHERE team_lead_id = ? ORDER BY id";
-
-    private final String findProjectByClientId = "SELECT * FROM projects WHERE client_id = ? ORDER BY id";
-
-    private final String updateProject = "UPDATE projects SET name = ?, requirements = ?, manager_id = ?, team_lead_id = ?, " +
-                    "client_id = ?, domain = ?, cost = ?, start_date = ?, deadline = ?, priority = ?, status = ? WHERE id = ?";
-
-    private final String deleteProject = "DELETE FROM projects WHERE id = ?";
+    private static final String DELETE_PROJECT = "DELETE FROM projects WHERE id = ?";
 
     @Override
     public int insertProject(Project project) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(insertProject, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     INSERT_PROJECT, Statement.RETURN_GENERATED_KEYS)) {
 
-            ps.setString(1, project.getName());
-            ps.setString(2, project.getRequirements());
-            ps.setInt(3, project.getManagerId());
-            ps.setObject(4, project.getTeamLeadId());
-            ps.setObject(5, project.getClientId());
-            ps.setString(6, project.getDomain());
-            ps.setBigDecimal(7, project.getCost());
-            ps.setObject(8, project.getStartDate());
-            ps.setObject(9, project.getDeadline());
-            ps.setString(10, project.getPriority());
-            ps.setString(11, project.getStatus());
+            statement.setString(1, project.getName());
+            statement.setString(2, project.getRequirements());
+            statement.setInt(3, project.getManagerId());
+            statement.setObject(4, project.getTeamLeadId());
+            statement.setObject(5, project.getClientId());
+            statement.setString(6, project.getDomain());
+            statement.setBigDecimal(7, project.getCost());
+            statement.setObject(8, project.getStartDate());
+            statement.setObject(9, project.getDeadline());
+            statement.setString(10, project.getPriority());
+            statement.setString(11, project.getStatus());
 
-            int count = ps.executeUpdate();
-            if (count > 0) {
-                try (ResultSet keys = ps.getGeneratedKeys()) {
+            int rows = statement.executeUpdate();
+
+            if (rows > 0) {
+                try (ResultSet keys = statement.getGeneratedKeys()) {
                     if (keys.next()) {
                         project.setId(keys.getInt(1));
                     }
                 }
-                logger.info("Project inserted successfully, id=" + project.getId());
-            }
-            return count;
 
-        } catch (SQLException e) {
-            logger.severe("Failed to insert project name=" + project.getName() + " : " + e.getMessage());
-            throw e;
+                logger.info("Project created. ID: " + project.getId());
+            }
+
+            return rows;
         }
     }
 
     @Override
     public Project findByProjectId(int id) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findProjectById)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_BY_ID)) {
 
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
+            statement.setInt(1, id);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? mapRow(resultSet) : null;
             }
-
-        } catch (SQLException e) {
-            logger.severe("Failed to fetch project id=" + id + " : " + e.getMessage());
-            throw e;
         }
     }
 
     @Override
     public List<Project> findAll() throws SQLException {
         List<Project> projects = new ArrayList<>();
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(findAllProjects);
-             ResultSet rs = ps.executeQuery()) {
 
-            while (rs.next()) {
-                projects.add(mapRow(rs));
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(FIND_ALL);
+             ResultSet resultSet = statement.executeQuery()) {
+
+            while (resultSet.next()) {
+                projects.add(mapRow(resultSet));
             }
-            return projects;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to fetch all projects : " + e.getMessage());
-            throw e;
         }
+
+        return projects;
     }
 
     @Override
     public List<Project> findByManagerId(int managerId) throws SQLException {
-        return findByForeignKey(findProjectByManagerId, managerId, "manager_id");
+        return findByForeignKey(FIND_BY_MANAGER, managerId);
     }
 
     @Override
     public List<Project> findByTeamLeadId(int teamLeadId) throws SQLException {
-        return findByForeignKey(findProjectByTeamLeadId, teamLeadId, "team_lead_id");
+        return findByForeignKey(FIND_BY_TEAM_LEAD, teamLeadId);
     }
 
     @Override
     public List<Project> findByClientId(int clientId) throws SQLException {
-        return findByForeignKey(findProjectByClientId, clientId, "client_id");
+        return findByForeignKey(FIND_BY_CLIENT, clientId);
     }
 
-    private List<Project> findByForeignKey(String sql, int value, String columnLabelForLog) throws SQLException {
+    private List<Project> findByForeignKey(String sql, int value) throws SQLException {
         List<Project> projects = new ArrayList<>();
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setInt(1, value);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    projects.add(mapRow(rs));
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setInt(1, value);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    projects.add(mapRow(resultSet));
                 }
             }
-            return projects;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to fetch projects by " + columnLabelForLog + "=" + value + " : " + e.getMessage());
-            throw e;
         }
+
+        return projects;
     }
 
     @Override
     public int updateProject(Project project) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(updateProject)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UPDATE_PROJECT)) {
 
-            ps.setString(1, project.getName());
-            ps.setString(2, project.getRequirements());
-            ps.setInt(3, project.getManagerId());
-            ps.setObject(4, project.getTeamLeadId());
-            ps.setObject(5, project.getClientId());
-            ps.setString(6, project.getDomain());
-            ps.setBigDecimal(7, project.getCost());
-            ps.setObject(8, project.getStartDate());
-            ps.setObject(9, project.getDeadline());
-            ps.setString(10, project.getPriority());
-            ps.setString(11, project.getStatus());
-            ps.setInt(12, project.getId());
+            statement.setString(1, project.getName());
+            statement.setString(2, project.getRequirements());
+            statement.setInt(3, project.getManagerId());
+            statement.setObject(4, project.getTeamLeadId());
+            statement.setObject(5, project.getClientId());
+            statement.setString(6, project.getDomain());
+            statement.setBigDecimal(7, project.getCost());
+            statement.setObject(8, project.getStartDate());
+            statement.setObject(9, project.getDeadline());
+            statement.setString(10, project.getPriority());
+            statement.setString(11, project.getStatus());
+            statement.setInt(12, project.getId());
 
-            int count = ps.executeUpdate();
-            if (count > 0) {
-                logger.info("Project updated successfully, id=" + project.getId());
-            }
-            return count;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to update project id=" + project.getId() + " : " + e.getMessage());
-            throw e;
+            return statement.executeUpdate();
         }
     }
 
     @Override
     public int deleteProject(int id) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(deleteProject)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(DELETE_PROJECT)) {
 
-            ps.setInt(1, id);
-            int count = ps.executeUpdate();
-            if (count > 0) {
-                logger.info("Project deleted successfully, id=" + id);
-            }
-            return count;
-
-        } catch (SQLException e) {
-            logger.severe("Failed to delete project id=" + id + " : " + e.getMessage());
-            throw e;
+            statement.setInt(1, id);
+            return statement.executeUpdate();
         }
     }
 
     private Project mapRow(ResultSet rs) throws SQLException {
         Project project = new Project();
+
         project.setId(rs.getInt("id"));
         project.setName(rs.getString("name"));
         project.setRequirements(rs.getString("requirements"));
@@ -201,13 +193,14 @@ public class IProjectDao implements ProjectDao {
         project.setCost(rs.getBigDecimal("cost"));
 
         java.sql.Date startDate = rs.getDate("start_date");
-        project.setStartDate(startDate != null ? startDate.toLocalDate() : null);
+        project.setStartDate(startDate == null ? null : startDate.toLocalDate());
 
         java.sql.Date deadline = rs.getDate("deadline");
-        project.setDeadline(deadline != null ? deadline.toLocalDate() : null);
+        project.setDeadline(deadline == null ? null : deadline.toLocalDate());
 
         project.setPriority(rs.getString("priority"));
         project.setStatus(rs.getString("status"));
+
         return project;
     }
 }

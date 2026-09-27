@@ -5,23 +5,21 @@ import java.time.LocalDate;
 public class User {
 
     public enum Role {
+
         ADMIN,
         PROJECT_MANAGER,
         TEAM_LEAD,
         TEAM_MEMBER;
 
         public static Role fromString(String value) {
+
             if (value == null) {
                 return null;
             }
 
-            for (Role role : Role.values()) {
-                if (role.name().equalsIgnoreCase(value.trim())) {
-                    return role;
-                }
-            }
-
-            throw new IllegalArgumentException("Invalid role: " + value);
+            return valueOf(
+                    value.trim().toUpperCase()
+            );
         }
     }
 

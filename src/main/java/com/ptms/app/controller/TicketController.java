@@ -10,14 +10,11 @@ import com.ptms.app.service.TicketService;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
-import java.util.logging.Logger;
 
 public class TicketController {
-
-    private static final Logger logger =
-            Logger.getLogger(TicketController.class.getName());
 
     private final TicketService ticketService;
     private final Scanner scanner;
@@ -38,83 +35,90 @@ public class TicketController {
         boolean running = true;
 
         while (running) {
-            logger.info("""
-                    
-                    --- Ticket Management ---
-                    1. Create ticket
-                    2. View tickets for a project
-                    3. View my assigned tickets
-                    4. Assign ticket
-                    5. Advance ticket status
-                    6. Delete ticket
-                    0. Back
-                    Choose an option:
-                    """);
+            showDashboard();
 
             String choice = scanner.nextLine().trim();
 
             try {
                 switch (choice) {
-                    case "1" -> createTicket(loggedInUser);
-                    case "2" -> viewTicketsForProject();
-                    case "3" -> viewMyTickets(loggedInUser);
-                    case "4" -> assignTicket(loggedInUser);
-                    case "5" -> advanceStatus(loggedInUser);
-                    case "6" -> deleteTicket(loggedInUser);
-                    case "0" -> {
+                    case "1":
+                        createTicket(loggedInUser);
+                        break;
+                    case "2":
+                        viewTicketsForProject();
+                        break;
+                    case "3":
+                        viewMyTickets(loggedInUser);
+                        break;
+                    case "4":
+                        assignTicket(loggedInUser);
+                        break;
+                    case "5":
+                        advanceStatus(loggedInUser);
+                        break;
+                    case "6":
+                        deleteTicket(loggedInUser);
+                        break;
+                    case "7":
+                        viewTicket();
+                        break;
+                    case "0":
                         running = false;
-                        logger.info("Returning to previous menu.");
-                    }
-                    default -> logger.warning(
-                            "Invalid option, try again."
-                    );
+                        break;
+                    default:
+                        System.out.println("Invalid option.");
                 }
             } catch (UnauthorizedException |
                      ValidationException |
                      ResourceNotFoundException e) {
-
-                logger.warning("Error: " + e.getMessage());
-
+                System.out.println("Error: " + e.getMessage());
             } catch (SQLException e) {
-
-                logger.severe(
-                        "Database error: " + e.getMessage()
-                );
+                System.out.println("Database error: " + e.getMessage());
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
+            } catch (DateTimeParseException e) {
+                System.out.println("Invalid date. Use YYYY-MM-DD.");
             }
         }
     }
 
-    private void createTicket(User requestingUser)
-            throws SQLException {
+    private void showDashboard() {
+        System.out.println();
+        System.out.println("==============================");
+        System.out.println("       TICKET MANAGEMENT");
+        System.out.println("==============================");
+        System.out.println("0. Back");
+        System.out.println("1. Create Ticket");
+        System.out.println("2. View Project Tickets");
+        System.out.println("3. View My Tickets");
+        System.out.println("4. Assign Ticket");
+        System.out.println("5. Update Ticket Status");
+        System.out.println("6. Delete Ticket");
+        System.out.println("7. View Ticket By ID");
+        System.out.println("==============================");
+        System.out.print("Choose an option: ");
+    }
 
-        logger.info("Project id:");
-        int projectId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+    private void createTicket(User requestingUser) throws SQLException {
+        int projectId = readInt("Project ID: ");
 
-        logger.info("Title:");
+        System.out.print("Title: ");
         String title = scanner.nextLine().trim();
 
-        logger.info("Description:");
+        System.out.print("Description: ");
         String description = scanner.nextLine().trim();
 
-        logger.info(
-                "Priority (LOW, MEDIUM, HIGH):"
-        );
-        String priority =
-                scanner.nextLine().trim().toUpperCase();
+        System.out.print("Priority (LOW, MEDIUM, HIGH): ");
+        String priority = scanner.nextLine().trim().toUpperCase();
 
-        logger.info(
-                "Deadline (YYYY-MM-DD, blank to skip):"
-        );
+        System.out.print("Deadline (YYYY-MM-DD, blank to skip): ");
+        String deadlineInput = scanner.nextLine().trim();
 
-        String deadlineInput =
-                scanner.nextLine().trim();
+        LocalDate deadline = null;
 
-        LocalDate deadline =
-                deadlineInput.isEmpty()
-                        ? null
-                        : LocalDate.parse(deadlineInput);
+        if (!deadlineInput.isEmpty()) {
+            deadline = LocalDate.parse(deadlineInput);
+        }
 
         Ticket ticket = new Ticket(
                 projectId,
@@ -125,71 +129,56 @@ public class TicketController {
 
         ticket.setDeadline(deadline);
 
-        ticketService.createTicket(
-                ticket,
-                requestingUser
-        );
+        ticketService.createTicket(ticket, requestingUser);
 
-        logger.info(
-                "Ticket created successfully. ID: "
-                        + ticket.getId()
+        System.out.println(
+                "Ticket created successfully. ID: " + ticket.getId()
         );
     }
 
-    private void viewTicketsForProject()
-            throws SQLException {
-
-        logger.info("Project id:");
-
-        int projectId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+    private void viewTicketsForProject() throws SQLException {
+        int projectId = readInt("Project ID: ");
 
         List<Ticket> tickets =
                 ticketService.getTicketsForProject(projectId);
 
         if (tickets.isEmpty()) {
-            logger.info(
-                    "No tickets found for this project."
-            );
+            System.out.println("No tickets found.");
             return;
         }
 
-        tickets.forEach(this::printTicketSummary);
+        System.out.println();
+        System.out.println("========== PROJECT TICKETS ==========");
+
+        tickets.forEach(this::printTicket);
     }
 
-    private void viewMyTickets(User requestingUser)
-            throws SQLException {
-
+    private void viewMyTickets(User requestingUser) throws SQLException {
         List<Ticket> tickets =
-                ticketService.getTicketsForUser(
-                        requestingUser.getId()
-                );
+                ticketService.getTicketsForUser(requestingUser.getId());
 
         if (tickets.isEmpty()) {
-            logger.info(
-                    "No tickets assigned to you."
-            );
+            System.out.println("No tickets assigned to you.");
             return;
         }
 
-        tickets.forEach(this::printTicketSummary);
+        System.out.println();
+        System.out.println("========== MY TICKETS ==========");
+
+        tickets.forEach(this::printTicket);
     }
 
-    private void assignTicket(User requestingUser)
-            throws SQLException {
+    private void viewTicket() throws SQLException {
+        int ticketId = readInt("Ticket ID: ");
 
-        logger.info("Ticket id:");
+        Ticket ticket = ticketService.getTicketById(ticketId);
 
-        int ticketId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+        printTicket(ticket);
+    }
 
-        logger.info("User id to assign:");
-
-        int userId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+    private void assignTicket(User requestingUser) throws SQLException {
+        int ticketId = readInt("Ticket ID: ");
+        int userId = readInt("User ID to assign: ");
 
         ticketService.assignTicket(
                 ticketId,
@@ -197,33 +186,40 @@ public class TicketController {
                 requestingUser
         );
 
-        logger.info("Ticket assigned successfully.");
+        System.out.println("Ticket assigned successfully.");
     }
 
-    private void advanceStatus(User requestingUser)
-            throws SQLException {
+    private void advanceStatus(User requestingUser) throws SQLException {
+        int ticketId = readInt("Ticket ID: ");
 
-        logger.info("Ticket id:");
+        System.out.println();
+        System.out.println("New Status:");
+        System.out.println("1. IN_PROGRESS");
+        System.out.println("2. IMPLEMENTED");
+        System.out.println("3. COMPLETED");
+        System.out.print("Choose status: ");
 
-        int ticketId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+        String statusChoice = scanner.nextLine().trim();
 
-        logger.info(
-                "New status (IN_PROGRESS, IMPLEMENTED, COMPLETED):"
-        );
+        String newStatus;
 
-        String newStatus =
-                scanner.nextLine().trim().toUpperCase();
+        switch (statusChoice) {
+            case "1":
+                newStatus = "IN_PROGRESS";
+                break;
+            case "2":
+                newStatus = "IMPLEMENTED";
+                break;
+            case "3":
+                newStatus = "COMPLETED";
+                break;
+            default:
+                throw new ValidationException("Invalid status.");
+        }
 
-        logger.info("Progress (0-100):");
+        int progress = readInt("Progress (0-100): ");
 
-        int progress = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
-
-        logger.info("Comment:");
-
+        System.out.print("Comment: ");
         String comment = scanner.nextLine().trim();
 
         ticketService.advanceStatus(
@@ -234,40 +230,39 @@ public class TicketController {
                 requestingUser
         );
 
-        logger.info(
-                "Ticket status updated to " + newStatus + "."
-        );
+        System.out.println("Ticket status updated successfully.");
     }
 
-    private void deleteTicket(User requestingUser)
-            throws SQLException {
-
-        logger.info("Ticket id to delete:");
-
-        int ticketId = Integer.parseInt(
-                scanner.nextLine().trim()
-        );
+    private void deleteTicket(User requestingUser) throws SQLException {
+        int ticketId = readInt("Ticket ID to delete: ");
 
         ticketService.deleteTicket(
                 ticketId,
                 requestingUser
         );
 
-        logger.info("Ticket deleted successfully.");
+        System.out.println("Ticket deleted successfully.");
     }
 
-    private void printTicketSummary(Ticket ticket) {
+    private int readInt(String message) {
+        System.out.print(message);
+        String input = scanner.nextLine().trim();
 
-        logger.info(
-                String.format(
-                        "id=%d | %s | project=%d | priority=%s | status=%s | assignedTo=%s",
-                        ticket.getId(),
-                        ticket.getTitle(),
-                        ticket.getProjectId(),
-                        ticket.getPriority(),
-                        ticket.getStatus(),
-                        ticket.getAssignedTo()
-                )
-        );
+        return Integer.parseInt(input);
+    }
+
+    private void printTicket(Ticket ticket) {
+        System.out.println();
+        System.out.println("----------------------------------------");
+        System.out.println("Ticket ID     : " + ticket.getId());
+        System.out.println("Project ID    : " + ticket.getProjectId());
+        System.out.println("Title         : " + ticket.getTitle());
+        System.out.println("Description   : " + ticket.getDescription());
+        System.out.println("Priority      : " + ticket.getPriority());
+        System.out.println("Status        : " + ticket.getStatus());
+        System.out.println("Assigned To   : " + ticket.getAssignedTo());
+        System.out.println("Deadline      : " + ticket.getDeadline());
+        System.out.println("Created At    : " + ticket.getCreatedAt());
+        System.out.println("----------------------------------------");
     }
 }
