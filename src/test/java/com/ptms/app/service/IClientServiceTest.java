@@ -3,6 +3,7 @@ package com.ptms.app.service;
 import com.ptms.app.dao.ClientDao;
 import com.ptms.app.exception.ResourceNotFoundException;
 import com.ptms.app.exception.UnauthorizedException;
+import com.ptms.app.exception.ValidationException;
 import com.ptms.app.model.Client;
 import com.ptms.app.model.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,311 +16,277 @@ import java.sql.SQLException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class IClientServiceTest {
 
     @Mock
-    private ClientDao clientDao;
+    ClientDao clientDao;
 
-    private IClientService clientService;
-
-    private User admin;
-    private User projectManager;
-    private User employee;
-    private Client client;
+    IClientService service;
+    User admin;
+    User member;
+    Client client;
 
     @BeforeEach
     void setUp() {
-        clientService = new IClientService(clientDao);
+        service = new IClientService(clientDao);
 
         admin = new User();
         admin.setId(1);
         admin.setRole(User.Role.ADMIN);
 
-        projectManager = new User();
-        projectManager.setId(2);
-        projectManager.setRole(User.Role.PROJECT_MANAGER);
-
-        employee = new User();
-        employee.setId(3);
-        employee.setRole(User.Role.TEAM_MEMBER);
+        member = new User();
+        member.setId(2);
+        member.setRole(User.Role.TEAM_MEMBER);
 
         client = new Client();
-        client.setId(1);
-        client.setName("ABC Technologies");
+        client.setId(10);
+        client.setName("John Doe");
+        client.setEmail("john@gmail.com");
+        client.setPhone("9876543210");
+        client.setCompanyName("ABC Company");
     }
 
     @Test
-    void addClient_ShouldAddClientForAdmin() throws SQLException {
-
+    void addClient_success() throws SQLException {
         // Arrange
         when(clientDao.insertClient(client)).thenReturn(1);
 
         // Act
-        Client result = clientService.addClient(client, admin);
+        Client result = service.addClient(client, admin);
 
         // Assert
-        assertNotNull(result);
         assertEquals(client, result);
         verify(clientDao).insertClient(client);
     }
 
     @Test
-    void addClient_ShouldAllowProjectManager() throws SQLException {
-
+    void addClient_unauthorized() {
         // Arrange
-        when(clientDao.insertClient(client)).thenReturn(1);
+        User user = member;
 
         // Act
-        Client result = clientService.addClient(client, projectManager);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(client, result);
-        verify(clientDao).insertClient(client);
-    }
-
-    @Test
-    void addClient_ShouldThrowUnauthorizedExceptionForEmployee()
-            throws SQLException {
-
-        // Arrange
-
-        // Act
-        UnauthorizedException exception = assertThrows(
+        UnauthorizedException ex = assertThrows(
                 UnauthorizedException.class,
-                () -> clientService.addClient(client, employee)
+                () -> service.addClient(client, user)
+        );
+
+        // Assert
+        assertEquals("Only ADMIN can add a client.", ex.getMessage());
+        verifyNoInteractions(clientDao);
+    }
+
+    @Test
+    void addClient_invalidClient() {
+        // Arrange
+        client.setEmail("invalid");
+
+        // Act
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.addClient(client, admin)
         );
 
         // Assert
         assertEquals(
-                "Only an Admin or Project Manager can add a client.",
-                exception.getMessage()
+                "Please enter a valid email address.",
+                ex.getMessage()
         );
-
-        verify(clientDao, never()).insertClient(any(Client.class));
+        verifyNoInteractions(clientDao);
     }
 
     @Test
-    void getClientById_ShouldReturnClient_WhenClientExists()
-            throws SQLException {
-
+    void getClientById_success() throws SQLException {
         // Arrange
-        when(clientDao.findByClientId(1)).thenReturn(client);
+        when(clientDao.findByClientId(10)).thenReturn(client);
 
         // Act
-        Client result = clientService.getClientById(1);
+        Client result = service.getClientById(10, admin);
 
         // Assert
-        assertNotNull(result);
         assertEquals(client, result);
-        verify(clientDao).findByClientId(1);
+        verify(clientDao).findByClientId(10);
     }
 
     @Test
-    void getClientById_ShouldThrowResourceNotFoundException_WhenClientDoesNotExist()
-            throws SQLException {
-
+    void getClientById_notFound() throws SQLException {
         // Arrange
-        when(clientDao.findByClientId(1)).thenReturn(null);
+        when(clientDao.findByClientId(10)).thenReturn(null);
 
         // Act
-        ResourceNotFoundException exception = assertThrows(
+        ResourceNotFoundException ex = assertThrows(
                 ResourceNotFoundException.class,
-                () -> clientService.getClientById(1)
+                () -> service.getClientById(10, admin)
         );
 
         // Assert
-        assertEquals(
-                "No client found with id 1",
-                exception.getMessage()
-        );
-
-        verify(clientDao).findByClientId(1);
+        assertEquals("No client found with id 10", ex.getMessage());
     }
 
     @Test
-    void getAllClients_ShouldReturnAllClients()
-            throws SQLException {
-
+    void getAllClients_success() throws SQLException {
         // Arrange
-        List<Client> clients = List.of(client);
-
-        when(clientDao.findAll()).thenReturn(clients);
+        when(clientDao.findAll()).thenReturn(List.of(client));
 
         // Act
-        List<Client> result = clientService.getAllClients();
+        List<Client> result = service.getAllClients(admin);
 
         // Assert
-        assertNotNull(result);
-        assertEquals(clients, result);
+        assertEquals(1, result.size());
+        assertEquals(client, result.get(0));
         verify(clientDao).findAll();
     }
 
     @Test
-    void searchClients_ShouldReturnMatchingClients()
-            throws SQLException {
-
+    void searchClients_success() throws SQLException {
         // Arrange
-        String keyword = "ABC";
-        List<Client> clients = List.of(client);
-
-        when(clientDao.searchByClientName(keyword)).thenReturn(clients);
+        when(clientDao.searchClients("John")).thenReturn(List.of(client));
 
         // Act
-        List<Client> result = clientService.searchClients(keyword);
+        List<Client> result =
+                service.searchClients(" John ", admin);
 
         // Assert
-        assertNotNull(result);
         assertEquals(1, result.size());
-        assertEquals(client, result.get(0));
-
-        verify(clientDao).searchByClientName(keyword);
+        verify(clientDao).searchClients("John");
     }
 
     @Test
-    void updateClient_ShouldUpdateClientForAdmin()
-            throws SQLException {
-
+    void searchClients_emptyKeyword() {
         // Arrange
+        String keyword = " ";
+
+        // Act
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.searchClients(keyword, admin)
+        );
+
+        // Assert
+        assertEquals(
+                "Search keyword cannot be empty.",
+                ex.getMessage()
+        );
+    }
+
+    @Test
+    void updateClient_success() throws SQLException {
+        // Arrange
+        when(clientDao.findByClientId(10)).thenReturn(client);
         when(clientDao.updateClient(client)).thenReturn(1);
 
         // Act
-        clientService.updateClient(client, admin);
+        service.updateClient(client, admin);
 
         // Assert
+        verify(clientDao).findByClientId(10);
         verify(clientDao).updateClient(client);
     }
 
     @Test
-    void updateClient_ShouldAllowProjectManager()
-            throws SQLException {
-
+    void updateClient_notFound() throws SQLException {
         // Arrange
-        when(clientDao.updateClient(client)).thenReturn(1);
+        when(clientDao.findByClientId(10)).thenReturn(null);
 
         // Act
-        clientService.updateClient(client, projectManager);
-
-        // Assert
-        verify(clientDao).updateClient(client);
-    }
-
-    @Test
-    void updateClient_ShouldThrowResourceNotFoundException_WhenClientDoesNotExist()
-            throws SQLException {
-
-        // Arrange
-        when(clientDao.updateClient(client)).thenReturn(0);
-
-        // Act
-        ResourceNotFoundException exception = assertThrows(
+        assertThrows(
                 ResourceNotFoundException.class,
-                () -> clientService.updateClient(client, admin)
+                () -> service.updateClient(client, admin)
         );
 
         // Assert
-        assertEquals(
-                "No client found with id 1 to update.",
-                exception.getMessage()
-        );
-
-        verify(clientDao).updateClient(client);
+        verify(clientDao).findByClientId(10);
+        verify(clientDao, never()).updateClient(any());
     }
 
     @Test
-    void updateClient_ShouldThrowUnauthorizedExceptionForEmployee()
-            throws SQLException {
-
+    void deleteClient_success() throws SQLException {
         // Arrange
+        when(clientDao.findByClientId(10)).thenReturn(client);
+        when(clientDao.deleteClient(10)).thenReturn(1);
 
         // Act
-        UnauthorizedException exception = assertThrows(
-                UnauthorizedException.class,
-                () -> clientService.updateClient(client, employee)
-        );
+        service.deleteClient(10, admin);
 
         // Assert
-        assertEquals(
-                "Only an Admin or Project Manager can update a client.",
-                exception.getMessage()
-        );
-
-        verify(clientDao, never()).updateClient(any(Client.class));
+        verify(clientDao).findByClientId(10);
+        verify(clientDao).deleteClient(10);
     }
 
     @Test
-    void deleteClient_ShouldDeleteClientForAdmin()
-            throws SQLException {
-
+    void deleteClient_notFound() throws SQLException {
         // Arrange
-        when(clientDao.deleteClient(1)).thenReturn(1);
+        when(clientDao.findByClientId(10)).thenReturn(null);
 
         // Act
-        clientService.deleteClient(1, admin);
-
-        // Assert
-        verify(clientDao).deleteClient(1);
-    }
-
-    @Test
-    void deleteClient_ShouldAllowProjectManager()
-            throws SQLException {
-
-        // Arrange
-        when(clientDao.deleteClient(1)).thenReturn(1);
-
-        // Act
-        clientService.deleteClient(1, projectManager);
-
-        // Assert
-        verify(clientDao).deleteClient(1);
-    }
-
-    @Test
-    void deleteClient_ShouldThrowResourceNotFoundException_WhenClientDoesNotExist()
-            throws SQLException {
-
-        // Arrange
-        when(clientDao.deleteClient(1)).thenReturn(0);
-
-        // Act
-        ResourceNotFoundException exception = assertThrows(
+        assertThrows(
                 ResourceNotFoundException.class,
-                () -> clientService.deleteClient(1, admin)
+                () -> service.deleteClient(10, admin)
         );
 
         // Assert
-        assertEquals(
-                "No client found with id 1 to delete.",
-                exception.getMessage()
-        );
-
-        verify(clientDao).deleteClient(1);
+        verify(clientDao).findByClientId(10);
     }
 
     @Test
-    void deleteClient_ShouldThrowUnauthorizedExceptionForEmployee()
-            throws SQLException {
-
+    void getTotalClients_success() throws SQLException {
         // Arrange
+        when(clientDao.countClients()).thenReturn(5);
 
         // Act
-        UnauthorizedException exception = assertThrows(
+        int result = service.getTotalClients(admin);
+
+        // Assert
+        assertEquals(5, result);
+        verify(clientDao).countClients();
+    }
+
+    @Test
+    void getTotalCompanies_success() throws SQLException {
+        // Arrange
+        when(clientDao.countCompanies()).thenReturn(3);
+
+        // Act
+        int result = service.getTotalCompanies(admin);
+
+        // Assert
+        assertEquals(3, result);
+        verify(clientDao).countCompanies();
+    }
+
+    @Test
+    void getTotalClients_unauthorized() {
+        // Arrange
+        User user = member;
+
+        // Act
+        UnauthorizedException ex = assertThrows(
                 UnauthorizedException.class,
-                () -> clientService.deleteClient(1, employee)
+                () -> service.getTotalClients(user)
         );
 
         // Assert
         assertEquals(
-                "Only an Admin or Project Manager can delete a client.",
-                exception.getMessage()
+                "Only ADMIN can view client statistics.",
+                ex.getMessage()
+        );
+    }
+
+    @Test
+    void daoException_isPropagated() throws SQLException {
+        // Arrange
+        when(clientDao.countClients())
+                .thenThrow(new SQLException("Database error"));
+
+        // Act
+        SQLException ex = assertThrows(
+                SQLException.class,
+                () -> service.getTotalClients(admin)
         );
 
-        verify(clientDao, never()).deleteClient(anyInt());
+        // Assert
+        assertEquals("Database error", ex.getMessage());
     }
 }

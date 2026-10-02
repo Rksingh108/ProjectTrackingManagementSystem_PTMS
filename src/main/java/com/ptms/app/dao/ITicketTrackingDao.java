@@ -2,185 +2,122 @@ package com.ptms.app.dao;
 
 import com.ptms.app.model.TicketTracking;
 import com.ptms.app.util.DBConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class ITicketTrackingDao implements TicketTrackingDao {
+    private static final Logger logger = LoggerFactory.getLogger(ITicketTrackingDao.class);
 
-    private static final Logger logger =
-            Logger.getLogger(ITicketTrackingDao.class.getName());
+    private static final String INSERT = """
+        INSERT INTO ticket_tracking
+        (ticket_id,status,progress,comment,updated_by)
+        VALUES (?,?,?,?,?)
+        """;
 
-    private static final String INSERT_TRACKING = "INSERT INTO ticket_tracking " +
-            "(ticket_id, status, progress, comment, updated_by) " +
-            "VALUES (?, ?, ?, ?, ?)";
+    private static final String FIND_BY_TICKET =
+            "SELECT * FROM ticket_tracking WHERE ticket_id=? ORDER BY id";
 
-    private static final String FIND_BY_TICKET_ID = "SELECT * FROM ticket_tracking " +
-            "WHERE ticket_id = ?";
+    private static final String FIND_BY_USER =
+            "SELECT * FROM ticket_tracking WHERE updated_by=? ORDER BY id";
 
-    private static final String FIND_BY_UPDATED_BY = "SELECT * FROM ticket_tracking " +
-            "WHERE updated_by = ? ORDER BY updated_at DESC";
-
-    private static final String UPDATE_TRACKING = "UPDATE ticket_tracking SET " +
-            "status = ?, progress = ?, comment = ?, updated_by = ? " +
-            "WHERE ticket_id = ?";
-
-    private static final String DELETE_TRACKING = "DELETE FROM ticket_tracking " +
-            "WHERE ticket_id = ?";
+    private static final String UPDATE = """
+        UPDATE ticket_tracking
+        SET status=?,progress=?,comment=?,updated_by=?
+        WHERE id=?
+        """;
 
     @Override
-    public int insertTicket(TicketTracking tracking)
-            throws SQLException {
-
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     INSERT_TRACKING,
-                     Statement.RETURN_GENERATED_KEYS)) {
+    public int insertTicket(TicketTracking tracking) throws SQLException {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     INSERT, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setInt(1, tracking.getTicketId());
             ps.setString(2, tracking.getStatus());
             ps.setInt(3, tracking.getProgress());
             ps.setString(4, tracking.getComment());
-
-            if (tracking.getUpdatedBy() != null) {
-                ps.setInt(5, tracking.getUpdatedBy());
-            } else {
-                ps.setNull(5, Types.INTEGER);
-            }
+            ps.setInt(5, tracking.getUpdatedBy());
 
             int rows = ps.executeUpdate();
 
             if (rows > 0) {
-
                 try (ResultSet rs = ps.getGeneratedKeys()) {
-
-                    if (rs.next()) {
-                        tracking.setId(rs.getInt(1));
-                    }
+                    if (rs.next()) tracking.setId(rs.getInt(1));
                 }
+                logger.info("Ticket tracking created. Ticket ID: {}", tracking.getTicketId());
             }
 
             return rows;
-
         } catch (SQLException e) {
-
-            logger.severe("Failed to insert ticket tracking: " + e.getMessage());
-
+            logger.error("Error creating ticket tracking.", e);
             throw e;
         }
     }
 
     @Override
-    public TicketTracking findByTicketId(int ticketId)
-            throws SQLException {
-
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(FIND_BY_TICKET_ID)) {
+    public TicketTracking findByTicketId(int ticketId) throws SQLException {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(FIND_BY_TICKET)) {
 
             ps.setInt(1, ticketId);
 
             try (ResultSet rs = ps.executeQuery()) {
-
-                if (rs.next()) {
-                    return mapRow(rs);
-                }
-
-                return null;
+                if (rs.next()) return mapRow(rs);
             }
 
+            return null;
         } catch (SQLException e) {
-
-            logger.severe("Failed to find tracking for ticket "
-                    + ticketId + ": " + e.getMessage());
-
+            logger.error("Error finding tracking for ticket {}.", ticketId, e);
             throw e;
         }
     }
 
     @Override
-    public List<TicketTracking> findByUpdatedBy(int userId)
-            throws SQLException {
+    public List<TicketTracking> findByUserId(int userId) throws SQLException {
+        List<TicketTracking> list = new ArrayList<>();
 
-        List<TicketTracking> trackings = new ArrayList<>();
-
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(FIND_BY_UPDATED_BY)) {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(FIND_BY_USER)) {
 
             ps.setInt(1, userId);
 
             try (ResultSet rs = ps.executeQuery()) {
-
-                while (rs.next()) {
-                    trackings.add(mapRow(rs));
-                }
+                while (rs.next()) list.add(mapRow(rs));
             }
 
-            return trackings;
-
+            logger.info("Tracking records retrieved for user {}: {}", userId, list.size());
+            return list;
         } catch (SQLException e) {
-
-            logger.severe("Failed to find tracking updates for user "
-                    + userId + ": " + e.getMessage());
-
+            logger.error("Error finding tracking for user {}.", userId, e);
             throw e;
         }
     }
 
     @Override
-    public int updateTicket(TicketTracking tracking)
-            throws SQLException {
-
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(UPDATE_TRACKING)) {
+    public int updateTicket(TicketTracking tracking) throws SQLException {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(UPDATE)) {
 
             ps.setString(1, tracking.getStatus());
             ps.setInt(2, tracking.getProgress());
             ps.setString(3, tracking.getComment());
+            ps.setInt(4, tracking.getUpdatedBy());
+            ps.setInt(5, tracking.getId());
 
-            if (tracking.getUpdatedBy() != null) {
-                ps.setInt(4, tracking.getUpdatedBy());
-            } else {
-                ps.setNull(4, Types.INTEGER);
-            }
-
-            ps.setInt(5, tracking.getTicketId());
-
-            return ps.executeUpdate();
-
+            int rows = ps.executeUpdate();
+            logger.info("Ticket tracking updated. ID: {}", tracking.getId());
+            return rows;
         } catch (SQLException e) {
-
-            logger.severe("Failed to update tracking for ticket "
-                    + tracking.getTicketId() + ": " + e.getMessage());
-
+            logger.error("Error updating ticket tracking {}.", tracking.getId(), e);
             throw e;
         }
     }
 
-    @Override
-    public int deleteTicket(int ticketId)
-            throws SQLException {
-
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(DELETE_TRACKING)) {
-
-            ps.setInt(1, ticketId);
-
-            return ps.executeUpdate();
-
-        } catch (SQLException e) {
-
-            logger.severe("Failed to delete tracking for ticket "
-                    + ticketId + ": " + e.getMessage());
-
-            throw e;
-        }
-    }
-
-    private TicketTracking mapRow(ResultSet rs)
-            throws SQLException {
-
+    private TicketTracking mapRow(ResultSet rs) throws SQLException {
         TicketTracking tracking = new TicketTracking();
 
         tracking.setId(rs.getInt("id"));
@@ -188,20 +125,11 @@ public class ITicketTrackingDao implements TicketTrackingDao {
         tracking.setStatus(rs.getString("status"));
         tracking.setProgress(rs.getInt("progress"));
         tracking.setComment(rs.getString("comment"));
+        tracking.setUpdatedBy(rs.getInt("updated_by"));
 
-        int updatedBy = rs.getInt("updated_by");
-
-        if (rs.wasNull()) {
-            tracking.setUpdatedBy(null);
-        } else {
-            tracking.setUpdatedBy(updatedBy);
-        }
-
-        Timestamp updatedAt = rs.getTimestamp("updated_at");
-
-        if (updatedAt != null) {
-            tracking.setUpdatedAt(updatedAt.toLocalDateTime());
-        }
+        Timestamp timestamp = rs.getTimestamp("updated_at");
+        if (timestamp != null)
+            tracking.setUpdatedAt(timestamp.toLocalDateTime());
 
         return tracking;
     }

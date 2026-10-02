@@ -2,17 +2,22 @@ package com.ptms.app.controller;
 
 import com.ptms.app.exception.ResourceNotFoundException;
 import com.ptms.app.exception.UnauthorizedException;
-import com.ptms.app.model.Project;
+import com.ptms.app.exception.ValidationException;
 import com.ptms.app.model.ProjectMember;
 import com.ptms.app.model.User;
 import com.ptms.app.service.IProjectMemberService;
 import com.ptms.app.service.ProjectMemberService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Scanner;
 
 public class ProjectMemberController {
+
+    private static final Logger logger =
+            LoggerFactory.getLogger(ProjectMemberController.class);
 
     private final ProjectMemberService projectMemberService;
     private final Scanner scanner;
@@ -25,151 +30,217 @@ public class ProjectMemberController {
     public ProjectMemberController(
             ProjectMemberService projectMemberService,
             Scanner scanner) {
+
         this.projectMemberService = projectMemberService;
         this.scanner = scanner;
     }
 
-    public void showMenu(User loggedInUser) {
-        boolean running = true;
+    public void addTeamMember(User loggedInUser) {
+        try {
+            requireMemberManagementRole(loggedInUser);
 
-        while (running) {
-            try {
-                showDashboard(loggedInUser);
+            System.out.println();
+            System.out.println("========== ADD TEAM MEMBER ==========");
 
-                String choice = scanner.nextLine().trim();
+            System.out.print("Project ID: ");
+            int projectId = Integer.parseInt(scanner.nextLine().trim());
 
-                switch (choice) {
-                    case "1":
-                        viewMyProjects(loggedInUser);
-                        break;
-                    case "2":
-                        viewProjectDetails(loggedInUser);
-                        break;
-                    case "3":
-                        viewMyTasksMessage();
-                        break;
-                    case "4":
-                        viewProjectTeam(loggedInUser);
-                        break;
-                    case "0":
-                        running = false;
-                        break;
-                    default:
-                        System.out.println("Invalid option. Please try again.");
-                }
-            } catch (UnauthorizedException | ResourceNotFoundException e) {
-                System.out.println("Error: " + e.getMessage());
-            } catch (SQLException e) {
-                System.out.println("Database error: " + e.getMessage());
-            } catch (NumberFormatException e) {
-                System.out.println("Please enter a valid project ID.");
-            }
-        }
-    }
+            System.out.print("Team Member User ID: ");
+            int userId = Integer.parseInt(scanner.nextLine().trim());
 
-    private void showDashboard(User loggedInUser) throws SQLException {
-        List<ProjectMember> projects =
-                projectMemberService.getMyProjects(loggedInUser);
+            projectMemberService.addMember(
+                    projectId,
+                    userId,
+                    "TEAM_MEMBER",
+                    loggedInUser
+            );
 
-        System.out.println();
-        System.out.println("================================================");
-        System.out.println("           PROJECT MEMBER DASHBOARD");
-        System.out.println("================================================");
-        System.out.println("Logged User : " + loggedInUser.getUsername());
-        System.out.println("Role        : " + loggedInUser.getRole());
-        System.out.println("My Projects : " + projects.size());
-        System.out.println("------------------------------------------------");
-        System.out.println("1. View My Projects");
-        System.out.println("2. View Project Details");
-        System.out.println("3. View My Tasks");
-        System.out.println("4. View Project Team");
-        System.out.println("0. Back");
-        System.out.println("================================================");
-        System.out.print("Choose an option: ");
-    }
+            logger.info(
+                    "Team Member added. Project ID: {}, User ID: {}, Added by: {}",
+                    projectId,
+                    userId,
+                    loggedInUser.getUsername()
+            );
 
-    private void viewMyProjects(User loggedInUser) throws SQLException {
-        List<ProjectMember> projects =
-                projectMemberService.getMyProjects(loggedInUser);
+            System.out.println("Team Member added successfully.");
 
-        System.out.println();
-        System.out.println("========== MY PROJECTS ==========");
+        } catch (
+                UnauthorizedException
+                | ValidationException
+                | ResourceNotFoundException e) {
 
-        if (projects.isEmpty()) {
-            System.out.println("You are not assigned to any project.");
-            return;
-        }
+            logger.warn(
+                    "Add team member failed: {}",
+                    e.getMessage()
+            );
 
-        for (ProjectMember member : projects) {
-            System.out.println("----------------------------------------");
-            System.out.println("Project ID : " + member.getProjectId());
-            System.out.println("My Role    : " + member.getRoleInProject());
-            System.out.println("Joined At  : " + member.getJoinedAt());
-        }
+            System.out.println("Error: " + e.getMessage());
 
-        System.out.println("----------------------------------------");
-    }
+        } catch (SQLException e) {
+            logger.error(
+                    "Database error while adding team member.",
+                    e
+            );
 
-    private void viewProjectDetails(User loggedInUser) throws SQLException {
-        System.out.print("Enter project ID: ");
-
-        int projectId = Integer.parseInt(scanner.nextLine().trim());
-
-        Project project =
-                projectMemberService.getProjectDetails(
-                        projectId,
-                        loggedInUser
-                );
-
-        ProjectMember membership =
-                projectMemberService.getMyMembership(
-                        projectId,
-                        loggedInUser
-                );
-
-        System.out.println();
-        System.out.println("========== PROJECT DETAILS ==========");
-        System.out.println("Project ID   : " + membership.getProjectId());
-        System.out.println("My Role      : " + membership.getRoleInProject());
-        System.out.println("Joined At    : " + membership.getJoinedAt());
-        System.out.println("Manager ID   : " + project.getManagerId());
-        System.out.println("Team Lead ID : " + project.getTeamLeadId());
-        System.out.println("=====================================");
-    }
-
-    private void viewProjectTeam(User loggedInUser) throws SQLException {
-        System.out.print("Enter project ID: ");
-
-        int projectId = Integer.parseInt(scanner.nextLine().trim());
-
-        List<ProjectMember> members =
-                projectMemberService.getProjectTeam(
-                        projectId,
-                        loggedInUser
-                );
-
-        System.out.println();
-        System.out.println("========== PROJECT TEAM ==========");
-
-        if (members.isEmpty()) {
-            System.out.println("No team members found.");
-            return;
-        }
-
-        for (ProjectMember member : members) {
             System.out.println(
-                    "User ID: " + member.getUserId()
-                            + " | Role: " + member.getRoleInProject()
-                            + " | Joined: " + member.getJoinedAt()
+                    "Database error: " + e.getMessage()
+            );
+
+        } catch (NumberFormatException e) {
+            System.out.println("Please enter valid numeric values.");
+        }
+    }
+
+    public void removeTeamMember(User loggedInUser) {
+        try {
+            requireMemberManagementRole(loggedInUser);
+
+            System.out.println();
+            System.out.println("========== REMOVE TEAM MEMBER ==========");
+
+            System.out.print("Project ID: ");
+            int projectId = Integer.parseInt(scanner.nextLine().trim());
+
+            System.out.print("Team Member User ID: ");
+            int userId = Integer.parseInt(scanner.nextLine().trim());
+
+            System.out.print("Confirm removal? (yes/no): ");
+            String confirmation = scanner.nextLine().trim().toLowerCase();
+
+            if (!"yes".equals(confirmation)) {
+                System.out.println("Removal cancelled.");
+                return;
+            }
+
+            projectMemberService.removeMember(
+                    projectId,
+                    userId,
+                    loggedInUser
+            );
+
+            logger.info(
+                    "Team Member removed. Project ID: {}, User ID: {}, Removed by: {}",
+                    projectId,
+                    userId,
+                    loggedInUser.getUsername()
+            );
+
+            System.out.println("Team Member removed successfully.");
+
+        } catch (
+                UnauthorizedException
+                | ValidationException
+                | ResourceNotFoundException e) {
+
+            logger.warn(
+                    "Remove team member failed: {}",
+                    e.getMessage()
+            );
+
+            System.out.println("Error: " + e.getMessage());
+
+        } catch (SQLException e) {
+            logger.error(
+                    "Database error while removing team member.",
+                    e
+            );
+
+            System.out.println(
+                    "Database error: " + e.getMessage()
+            );
+
+        } catch (NumberFormatException e) {
+            System.out.println("Please enter valid numeric values.");
+        }
+    }
+
+    public void showTeam(User loggedInUser) {
+        try {
+            if (loggedInUser == null) {
+                throw new UnauthorizedException(
+                        "User must be logged in."
+                );
+            }
+
+            System.out.println();
+            System.out.println("========== PROJECT TEAM ==========");
+
+            System.out.print("Project ID: ");
+            int projectId = Integer.parseInt(scanner.nextLine().trim());
+
+            List<ProjectMember> members =
+                    projectMemberService.getProjectTeam(
+                            projectId,
+                            loggedInUser
+                    );
+
+            if (members.isEmpty()) {
+                System.out.println(
+                        "No members found in this project."
+                );
+                return;
+            }
+
+            System.out.println();
+            System.out.println("Project ID: " + projectId);
+            System.out.println("----------------------------------------");
+
+            for (ProjectMember member : members) {
+                System.out.println(
+                        "User ID       : " + member.getUserId()
+                );
+
+                System.out.println(
+                        "Project Role  : " + member.getRoleInProject()
+                );
+
+                System.out.println(
+                        "Joined At     : " + member.getJoinedAt()
+                );
+
+                System.out.println("----------------------------------------");
+            }
+
+        } catch (
+                UnauthorizedException
+                | ValidationException
+                | ResourceNotFoundException e) {
+
+            logger.warn(
+                    "Show project team failed: {}",
+                    e.getMessage()
+            );
+
+            System.out.println("Error: " + e.getMessage());
+
+        } catch (SQLException e) {
+            logger.error(
+                    "Database error while showing project team.",
+                    e
+            );
+
+            System.out.println(
+                    "Database error: " + e.getMessage()
+            );
+
+        } catch (NumberFormatException e) {
+            System.out.println("Please enter a valid project ID.");
+        }
+    }
+
+    private void requireMemberManagementRole(User loggedInUser) {
+        if (loggedInUser == null) {
+            throw new UnauthorizedException(
+                    "User must be logged in."
             );
         }
 
-        System.out.println("==================================");
-    }
+        if (loggedInUser.getRole() != User.Role.ADMIN
+                && loggedInUser.getRole() != User.Role.TEAM_LEAD) {
 
-    private void viewMyTasksMessage() {
-        System.out.println();
-        System.out.println("========== MY TASKS ==========");
-        System.out.println("Task management will be handled by the Task module.");
+            throw new UnauthorizedException(
+                    "Only ADMIN or TEAM_LEAD can manage project members."
+            );
+        }
     }
 }

@@ -2,21 +2,24 @@ package com.ptms.app.dao;
 
 import com.ptms.app.model.ProjectMember;
 import com.ptms.app.util.DBConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class IProjectMemberDao implements ProjectMemberDao {
 
-    private static final Logger logger = Logger.getLogger(IProjectMemberDao.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(IProjectMemberDao.class);
 
     private static final String INSERT_PROJECT_MEMBER = """
-            INSERT INTO project_members (project_id, user_id, role_in_project)
+            INSERT INTO project_members
+            (project_id, user_id, role_in_project)
             VALUES (?, ?, ?)
             """;
 
@@ -60,9 +63,32 @@ public class IProjectMemberDao implements ProjectMemberDao {
             statement.setInt(2, member.getUserId());
             statement.setString(3, member.getRoleInProject());
 
-            return statement.executeUpdate();
+            int rows = statement.executeUpdate();
+
+            if (rows > 0) {
+                logger.info(
+                        "Project member added successfully. Project ID: {}, User ID: {}, Role: {}",
+                        member.getProjectId(),
+                        member.getUserId(),
+                        member.getRoleInProject()
+                );
+            } else {
+                logger.warn(
+                        "Project member insert affected 0 rows. Project ID: {}, User ID: {}",
+                        member.getProjectId(),
+                        member.getUserId()
+                );
+            }
+
+            return rows;
+
         } catch (SQLException e) {
-            logger.severe("Failed to add project member: " + e.getMessage());
+            logger.error(
+                    "Database error while adding project member. Project ID: {}, User ID: {}",
+                    member.getProjectId(),
+                    member.getUserId(),
+                    e
+            );
             throw e;
         }
     }
@@ -81,8 +107,19 @@ public class IProjectMemberDao implements ProjectMemberDao {
                     members.add(mapRow(resultSet));
                 }
             }
+
+            logger.info(
+                    "Retrieved project members. Project ID: {}, Result count: {}",
+                    projectId,
+                    members.size()
+            );
+
         } catch (SQLException e) {
-            logger.severe("Failed to fetch project members: " + e.getMessage());
+            logger.error(
+                    "Database error while retrieving project members. Project ID: {}",
+                    projectId,
+                    e
+            );
             throw e;
         }
 
@@ -103,8 +140,19 @@ public class IProjectMemberDao implements ProjectMemberDao {
                     members.add(mapRow(resultSet));
                 }
             }
+
+            logger.info(
+                    "Retrieved projects for user. User ID: {}, Result count: {}",
+                    userId,
+                    members.size()
+            );
+
         } catch (SQLException e) {
-            logger.severe("Failed to fetch user memberships: " + e.getMessage());
+            logger.error(
+                    "Database error while retrieving projects for user. User ID: {}",
+                    userId,
+                    e
+            );
             throw e;
         }
 
@@ -120,12 +168,22 @@ public class IProjectMemberDao implements ProjectMemberDao {
             statement.setInt(2, userId);
 
             try (ResultSet resultSet = statement.executeQuery()) {
-                return resultSet.next() ? mapRow(resultSet) : null;
+                if (resultSet.next()) {
+                    return mapRow(resultSet);
+                }
             }
+
         } catch (SQLException e) {
-            logger.severe("Failed to check project membership: " + e.getMessage());
+            logger.error(
+                    "Database error while finding project membership. Project ID: {}, User ID: {}",
+                    projectId,
+                    userId,
+                    e
+            );
             throw e;
         }
+
+        return null;
     }
 
     @Override
@@ -137,9 +195,32 @@ public class IProjectMemberDao implements ProjectMemberDao {
             statement.setInt(2, projectId);
             statement.setInt(3, userId);
 
-            return statement.executeUpdate();
+            int rows = statement.executeUpdate();
+
+            if (rows > 0) {
+                logger.info(
+                        "Project member role updated. Project ID: {}, User ID: {}, Role: {}",
+                        projectId,
+                        userId,
+                        roleInProject
+                );
+            } else {
+                logger.warn(
+                        "Project member role update affected 0 rows. Project ID: {}, User ID: {}",
+                        projectId,
+                        userId
+                );
+            }
+
+            return rows;
+
         } catch (SQLException e) {
-            logger.severe("Failed to update project member role: " + e.getMessage());
+            logger.error(
+                    "Database error while updating project member role. Project ID: {}, User ID: {}",
+                    projectId,
+                    userId,
+                    e
+            );
             throw e;
         }
     }
@@ -152,9 +233,31 @@ public class IProjectMemberDao implements ProjectMemberDao {
             statement.setInt(1, projectId);
             statement.setInt(2, userId);
 
-            return statement.executeUpdate();
+            int rows = statement.executeUpdate();
+
+            if (rows > 0) {
+                logger.info(
+                        "Project member deleted successfully. Project ID: {}, User ID: {}",
+                        projectId,
+                        userId
+                );
+            } else {
+                logger.warn(
+                        "Project member deletion affected 0 rows. Project ID: {}, User ID: {}",
+                        projectId,
+                        userId
+                );
+            }
+
+            return rows;
+
         } catch (SQLException e) {
-            logger.severe("Failed to delete project member: " + e.getMessage());
+            logger.error(
+                    "Database error while deleting project member. Project ID: {}, User ID: {}",
+                    projectId,
+                    userId,
+                    e
+            );
             throw e;
         }
     }
@@ -166,8 +269,13 @@ public class IProjectMemberDao implements ProjectMemberDao {
         member.setUserId(resultSet.getInt("user_id"));
         member.setRoleInProject(resultSet.getString("role_in_project"));
 
-        java.sql.Timestamp joinedAt = resultSet.getTimestamp("joined_at");
-        member.setJoinedAt(joinedAt != null ? joinedAt.toLocalDateTime() : null);
+        Timestamp joinedAt = resultSet.getTimestamp("joined_at");
+
+        if (joinedAt != null) {
+            member.setJoinedAt(joinedAt.toLocalDateTime());
+        } else {
+            member.setJoinedAt(null);
+        }
 
         return member;
     }

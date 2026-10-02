@@ -11,112 +11,89 @@ import com.ptms.app.service.TicketTrackingService;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Scanner;
+import java.util.logging.Logger;
 
 public class TicketTrackingController {
+    private static final Logger logger = Logger.getLogger(TicketTrackingController.class.getName());
 
-    private final TicketTrackingService ticketTrackingService;
+    private final TicketTrackingService trackingService;
     private final Scanner scanner;
 
     public TicketTrackingController() {
-        this.ticketTrackingService = new ITicketTrackingService();
+        this.trackingService = new ITicketTrackingService();
         this.scanner = new Scanner(System.in);
     }
 
     public TicketTrackingController(
-            TicketTrackingService ticketTrackingService,
+            TicketTrackingService trackingService,
             Scanner scanner) {
-        this.ticketTrackingService = ticketTrackingService;
+        this.trackingService = trackingService;
         this.scanner = scanner;
     }
 
-    public void showMenu(User loggedInUser) {
-        if (loggedInUser == null) {
-            throw new UnauthorizedException("User is not logged in.");
-        }
-
-        boolean running = true;
-
-        while (running) {
-            showDashboard();
+    public void showMenu(User user) {
+        while (true) {
+            System.out.println("\n===== TICKET TRACKING =====");
+            System.out.println("1. View Ticket Tracking");
+            System.out.println("2. View My Updates");
+            System.out.println("0. Back");
+            System.out.print("Enter choice: ");
 
             String choice = scanner.nextLine().trim();
 
             try {
                 switch (choice) {
-                    case "1":
-                        viewTrackingForTicket();
-                        break;
-                    case "2":
-                        viewMyUpdates(loggedInUser);
-                        break;
-                    case "0":
-                        running = false;
-                        break;
-                    default:
-                        System.out.println("Invalid option.");
+                    case "1" -> viewTicketTracking(user);
+                    case "2" -> viewMyUpdates(user);
+                    case "0" -> {
+                        return;
+                    }
+                    default -> System.out.println("Invalid choice.");
                 }
-            } catch (ResourceNotFoundException | ValidationException e) {
+            } catch (UnauthorizedException |
+                     ValidationException |
+                     ResourceNotFoundException e) {
+
                 System.out.println("Error: " + e.getMessage());
+                logger.warning(e.getMessage());
+
             } catch (SQLException e) {
+
                 System.out.println("Database error: " + e.getMessage());
-            } catch (NumberFormatException e) {
-                System.out.println("Please enter a valid number.");
+                logger.severe(e.getMessage());
             }
         }
     }
 
-    private void showDashboard() {
-        System.out.println();
-        System.out.println("==============================");
-        System.out.println("       TICKET TRACKING");
-        System.out.println("==============================");
-        System.out.println("0. Back");
-        System.out.println("1. View Ticket Tracking");
-        System.out.println("2. View My Recent Updates");
-        System.out.println("==============================");
-        System.out.print("Choose an option: ");
-    }
+    private void viewTicketTracking(User user) throws SQLException {
+        System.out.print("Enter Ticket ID: ");
+        int ticketId = Integer.parseInt(scanner.nextLine());
 
-    private void viewTrackingForTicket() throws SQLException {
-        int ticketId = readInt("Ticket ID: ");
-
-        TicketTracking tracking =
-                ticketTrackingService.getTrackingForTicket(ticketId);
+        TicketTracking tracking = trackingService.getTrackingForTicket(ticketId, user);
 
         printTracking(tracking);
     }
 
-    private void viewMyUpdates(User requestingUser) throws SQLException {
-        List<TicketTracking> updates =
-                ticketTrackingService.getUpdatesByUser(
-                        requestingUser.getId()
-                );
+    private void viewMyUpdates(User user) throws SQLException {
+        List<TicketTracking> updates = trackingService.getUpdatesByUser(user.getId(), user);
 
         if (updates.isEmpty()) {
-            System.out.println("You have not updated any tickets.");
+            System.out.println("No tracking updates found.");
             return;
         }
-
-        System.out.println();
-        System.out.println("========== YOUR TICKET UPDATES ==========");
 
         updates.forEach(this::printTracking);
     }
 
-    private int readInt(String message) {
-        System.out.print(message);
-        return Integer.parseInt(scanner.nextLine().trim());
-    }
-
     private void printTracking(TicketTracking tracking) {
-        System.out.println();
-        System.out.println("----------------------------------------");
+        System.out.println("\n-----------------------------");
+        System.out.println("Tracking ID : " + tracking.getId());
         System.out.println("Ticket ID   : " + tracking.getTicketId());
         System.out.println("Status      : " + tracking.getStatus());
         System.out.println("Progress    : " + tracking.getProgress() + "%");
+        System.out.println("Comment     : " + tracking.getComment());
         System.out.println("Updated By  : " + tracking.getUpdatedBy());
         System.out.println("Updated At  : " + tracking.getUpdatedAt());
-        System.out.println("Comment     : " + tracking.getComment());
-        System.out.println("----------------------------------------");
+        System.out.println("-----------------------------");
     }
 }

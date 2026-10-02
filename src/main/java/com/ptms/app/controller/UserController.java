@@ -1,8 +1,5 @@
 package com.ptms.app.controller;
 
-import com.ptms.app.exception.ResourceNotFoundException;
-import com.ptms.app.exception.UnauthorizedException;
-import com.ptms.app.exception.ValidationException;
 import com.ptms.app.model.User;
 import com.ptms.app.service.IUserService;
 import com.ptms.app.service.UserService;
@@ -27,18 +24,21 @@ public class UserController {
     }
 
     public void showMenu(User loggedInUser) {
-        boolean running = true;
+        while (true) {
+            System.out.println("\n===== USER MANAGEMENT =====");
+            System.out.println("1. View All Users");
+            System.out.println("2. Search Users");
+            System.out.println("3. View Users By Role");
+            System.out.println("4. Update Profile");
+            System.out.println("5. Change User Role");
+            System.out.println("6. Delete User");
+            System.out.println("0. Back");
+            System.out.print("Enter choice: ");
 
-        while (running) {
-            printMenu(loggedInUser);
-
-            String choice = scanner.nextLine().trim();
+            String choice = scanner.nextLine();
 
             try {
                 switch (choice) {
-                    case "0":
-                        running = false;
-                        break;
                     case "1":
                         viewAllUsers(loggedInUser);
                         break;
@@ -57,79 +57,75 @@ public class UserController {
                     case "6":
                         deleteUser(loggedInUser);
                         break;
+                    case "0":
+                        return;
                     default:
-                        System.out.println("Invalid option.");
+                        System.out.println("Invalid choice.");
                 }
-            } catch (UnauthorizedException |
-                     ValidationException |
-                     ResourceNotFoundException e) {
+            } catch (SQLException | RuntimeException e) {
                 System.out.println("Error: " + e.getMessage());
-            } catch (SQLException e) {
-                System.out.println("Database error: " + e.getMessage());
             }
         }
     }
 
-    private void printMenu(User user) {
-        System.out.println();
-        System.out.println("========== USER MANAGEMENT ==========");
-        System.out.println("0. Back");
-        System.out.println("4. Update my profile");
-
-        if (user.getRole() == User.Role.ADMIN) {
-            System.out.println("1. View all users");
-            System.out.println("2. Search users");
-            System.out.println("3. View users by role");
-            System.out.println("5. Change user role");
-            System.out.println("6. Delete user");
-        }
-
-        System.out.println("=====================================");
-        System.out.print("Choose an option: ");
-    }
-
-    public User registerUser() throws SQLException {
-        System.out.println();
-        System.out.println("========== REGISTER ==========");
-
-        User user = new User();
-
-        System.out.print("First name: ");
-        user.setFirstName(scanner.nextLine().trim());
-
-        System.out.print("Last name: ");
-        user.setLastName(scanner.nextLine().trim());
-
-        System.out.print("Username: ");
-        user.setUsername(scanner.nextLine().trim());
-
-        System.out.print("Email: ");
-        user.setEmail(scanner.nextLine().trim());
-
-        System.out.print("Password: ");
-        user.setPassword(scanner.nextLine());
+    public User registerUser() {
+        System.out.println("\n===== USER REGISTRATION =====");
 
         try {
-            User saved = userService.registerUser(user);
+            System.out.print("First Name: ");
+            String firstName = scanner.nextLine();
 
-            System.out.println(
-                    "Registration successful. Welcome, "
-                            + saved.getFirstName()
-            );
+            System.out.print("Last Name: ");
+            String lastName = scanner.nextLine();
 
-            return saved;
-        } catch (ValidationException e) {
+            System.out.print("Username: ");
+            String username = scanner.nextLine();
+
+            System.out.print("Email: ");
+            String email = scanner.nextLine();
+
+            System.out.print("Password: ");
+            String password = scanner.nextLine();
+
+            System.out.println("\nSelect Role:");
+            System.out.println("1. ADMIN");
+            System.out.println("2. PROJECT_MANAGER");
+            System.out.println("3. TEAM_LEAD");
+            System.out.println("4. TEAM_MEMBER");
+            System.out.print("Choose role: ");
+
+            String roleChoice = scanner.nextLine();
+
+            User.Role role = promptForRegistrationRole(roleChoice);
+
+            User user = new User();
+            user.setFirstName(firstName);
+            user.setLastName(lastName);
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setPassword(password);
+            user.setRole(role);
+
+            User registeredUser = userService.registerUser(user);
+
+            System.out.println("\nUser registered successfully.");
+            System.out.println("User ID: " + registeredUser.getId());
+            System.out.println("Username: " + registeredUser.getUsername());
+            System.out.println("Role: " + registeredUser.getRole());
+
+            return registeredUser;
+
+        } catch (SQLException | RuntimeException e) {
             System.out.println("Registration failed: " + e.getMessage());
             return null;
         }
     }
 
-    public User login() throws SQLException {
-        System.out.println();
-        System.out.println("========== LOGIN ==========");
+    public User login() {
+        System.out.println("\n===== LOGIN =====");
 
         System.out.print("Username: ");
-        String username = scanner.nextLine().trim();
+        String username = scanner.nextLine();
 
         System.out.print("Password: ");
         String password = scanner.nextLine();
@@ -137,13 +133,13 @@ public class UserController {
         try {
             User user = userService.login(username, password);
 
-            System.out.println(
-                    "Login successful. Welcome, "
-                            + user.getFirstName()
-            );
+            System.out.println("\nLogin successful.");
+            System.out.println("Welcome, " + user.getFirstName());
+            System.out.println("Role: " + user.getRole());
 
             return user;
-        } catch (ValidationException e) {
+
+        } catch (SQLException | RuntimeException e) {
             System.out.println("Login failed: " + e.getMessage());
             return null;
         }
@@ -157,167 +153,159 @@ public class UserController {
             return;
         }
 
-        System.out.println();
-        System.out.println("========== ALL USERS ==========");
+        System.out.println("\n===== ALL USERS =====");
 
-        users.forEach(this::printUser);
+        for (User user : users) {
+            printUser(user);
+        }
     }
 
     private void searchUsers(User loggedInUser) throws SQLException {
-        System.out.print("Search keyword: ");
+        System.out.print("Enter search keyword: ");
+        String keyword = scanner.nextLine();
 
-        String keyword = scanner.nextLine().trim();
-
-        List<User> users =
-                userService.searchUsers(keyword, loggedInUser);
+        List<User> users = userService.searchUsers(keyword, loggedInUser);
 
         if (users.isEmpty()) {
             System.out.println("No users found.");
             return;
         }
 
-        System.out.println();
-        System.out.println("========== SEARCH RESULTS ==========");
+        System.out.println("\n===== SEARCH RESULTS =====");
 
-        users.forEach(this::printUser);
+        for (User user : users) {
+            printUser(user);
+        }
     }
 
     private void viewUsersByRole(User loggedInUser) throws SQLException {
         User.Role role = promptForRole();
 
-        List<User> users =
-                userService.getUsersByRole(role, loggedInUser);
+        List<User> users = userService.getUsersByRole(role, loggedInUser);
 
         if (users.isEmpty()) {
-            System.out.println("No users found.");
+            System.out.println("No users found with role " + role);
             return;
         }
 
-        System.out.println();
-        System.out.println("========== USERS BY ROLE ==========");
+        System.out.println("\n===== USERS WITH ROLE " + role + " =====");
 
-        users.forEach(this::printUser);
+        for (User user : users) {
+            printUser(user);
+        }
     }
 
     private void updateProfile(User loggedInUser) throws SQLException {
-        System.out.println("Leave blank to keep current value.");
+        System.out.println("\n===== UPDATE PROFILE =====");
 
-        System.out.print(
-                "First name [" + loggedInUser.getFirstName() + "]: "
-        );
+        User user = new User();
+        user.setId(loggedInUser.getId());
 
-        String firstName = scanner.nextLine().trim();
+        System.out.print("First Name: ");
+        user.setFirstName(scanner.nextLine());
 
-        if (!firstName.isEmpty()) {
-            loggedInUser.setFirstName(firstName);
+        System.out.print("Last Name: ");
+        user.setLastName(scanner.nextLine());
+
+        System.out.print("Email: ");
+        user.setEmail(scanner.nextLine());
+
+        System.out.print("Date of Birth (YYYY-MM-DD): ");
+        String dob = scanner.nextLine();
+
+        if (!dob.trim().isEmpty()) {
+            user.setDateOfBirth(java.time.LocalDate.parse(dob));
         }
 
-        System.out.print(
-                "Last name [" + loggedInUser.getLastName() + "]: "
-        );
+        System.out.print("Mobile Number: ");
+        user.setMobileNumber(scanner.nextLine());
 
-        String lastName = scanner.nextLine().trim();
+        System.out.print("Gender: ");
+        user.setGender(scanner.nextLine());
 
-        if (!lastName.isEmpty()) {
-            loggedInUser.setLastName(lastName);
-        }
-
-        System.out.print(
-                "Email [" + loggedInUser.getEmail() + "]: "
-        );
-
-        String email = scanner.nextLine().trim();
-
-        if (!email.isEmpty()) {
-            loggedInUser.setEmail(email);
-        }
-
-        userService.updateProfile(loggedInUser);
+        userService.updateProfile(user, loggedInUser);
 
         System.out.println("Profile updated successfully.");
     }
 
     private void changeRole(User loggedInUser) throws SQLException {
-        if (loggedInUser.getRole() != User.Role.ADMIN) {
-            throw new UnauthorizedException(
-                    "Only ADMIN can change roles."
-            );
-        }
+        System.out.println("\n===== CHANGE USER ROLE =====");
 
-        int userId = readPositiveInt();
+        System.out.print("Enter User ID: ");
+        int userId = Integer.parseInt(scanner.nextLine());
+
         User.Role role = promptForRole();
 
-        userService.changeRole(
-                userId,
-                role,
-                loggedInUser
-        );
+        userService.changeRole(userId, role, loggedInUser);
 
-        System.out.println("Role updated successfully.");
+        System.out.println("User role updated successfully.");
     }
 
     private void deleteUser(User loggedInUser) throws SQLException {
-        if (loggedInUser.getRole() != User.Role.ADMIN) {
-            throw new UnauthorizedException(
-                    "Only ADMIN can delete users."
-            );
+        System.out.println("\n===== DELETE USER =====");
+
+        System.out.print("Enter User ID: ");
+        int userId = Integer.parseInt(scanner.nextLine());
+
+        System.out.print("Are you sure? (yes/no): ");
+        String confirmation = scanner.nextLine();
+
+        if (!confirmation.equalsIgnoreCase("yes")) {
+            System.out.println("Delete operation cancelled.");
+            return;
         }
 
-        int userId = readPositiveInt();
-
-        userService.deleteUser(
-                userId,
-                loggedInUser
-        );
+        userService.deleteUser(userId, loggedInUser);
 
         System.out.println("User deleted successfully.");
     }
 
-    private int readPositiveInt() {
-        System.out.print("User ID: ");
-
-        try {
-            int value = Integer.parseInt(
-                    scanner.nextLine().trim()
-            );
-
-            if (value <= 0) {
-                throw new NumberFormatException();
-            }
-
-            return value;
-        } catch (NumberFormatException e) {
-            throw new ValidationException(
-                    "Enter a valid positive number."
-            );
+    private User.Role promptForRegistrationRole(String choice) {
+        switch (choice) {
+            case "1":
+                return User.Role.ADMIN;
+            case "2":
+                return User.Role.PROJECT_MANAGER;
+            case "3":
+                return User.Role.TEAM_LEAD;
+            case "4":
+                return User.Role.TEAM_MEMBER;
+            default:
+                throw new IllegalArgumentException("Invalid role choice.");
         }
     }
 
     private User.Role promptForRole() {
-        while (true) {
-            System.out.print(
-                    "Role (ADMIN, PROJECT_MANAGER, TEAM_LEAD, TEAM_MEMBER): "
-            );
+        System.out.println("\nSelect Role:");
+        System.out.println("1. ADMIN");
+        System.out.println("2. PROJECT_MANAGER");
+        System.out.println("3. TEAM_LEAD");
+        System.out.println("4. TEAM_MEMBER");
+        System.out.print("Choose role: ");
 
-            String input = scanner.nextLine()
-                    .trim()
-                    .toUpperCase();
+        String choice = scanner.nextLine();
 
-            try {
-                return User.Role.valueOf(input);
-            } catch (IllegalArgumentException e) {
-                System.out.println("Invalid role. Try again.");
-            }
+        switch (choice) {
+            case "1":
+                return User.Role.ADMIN;
+            case "2":
+                return User.Role.PROJECT_MANAGER;
+            case "3":
+                return User.Role.TEAM_LEAD;
+            case "4":
+                return User.Role.TEAM_MEMBER;
+            default:
+                throw new IllegalArgumentException("Invalid role choice.");
         }
     }
 
     private void printUser(User user) {
-        System.out.println("----------------------------------------");
+        System.out.println("--------------------------------");
         System.out.println("ID       : " + user.getId());
-        System.out.println("Name     : " + user.getFirstName() + " " + user.getLastName());
+        System.out.println("Name     : " +
+                user.getFirstName() + " " + user.getLastName());
         System.out.println("Username : " + user.getUsername());
         System.out.println("Email    : " + user.getEmail());
         System.out.println("Role     : " + user.getRole());
-        System.out.println("----------------------------------------");
     }
 }

@@ -19,9 +19,9 @@ public interface UserService {
 
     List<User> getUsersByRole(User.Role role, User requestingUser) throws SQLException;
 
-    void updateProfile(User user) throws SQLException;
+    void updateProfile(User user, User requestingUser) throws SQLException;
 
-    void changeRole(int userId, User.Role newRole, User requestingUser) throws SQLException;
+    void changeRole(int userId, User.Role role, User requestingUser) throws SQLException;
 
     void deleteUser(int userId, User requestingUser) throws SQLException;
 }

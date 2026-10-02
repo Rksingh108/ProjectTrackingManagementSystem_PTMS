@@ -8,6 +8,7 @@ import com.ptms.app.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,255 +24,237 @@ class IUserServiceTest {
     @Mock
     private UserDao userDao;
 
-    private IUserService service;
+    @InjectMocks
+    private IUserService userService;
+
+    private User admin;
+    private User teamMember;
 
     @BeforeEach
     void setUp() {
-        service = new IUserService(userDao);
+        admin = new User();
+        admin.setId(1);
+        admin.setFirstName("Admin");
+        admin.setLastName("User");
+        admin.setUsername("admin");
+        admin.setEmail("admin@gmail.com");
+        admin.setPassword("admin123");
+        admin.setRole(User.Role.ADMIN);
+
+        teamMember = new User();
+        teamMember.setId(2);
+        teamMember.setFirstName("John");
+        teamMember.setLastName("Smith");
+        teamMember.setUsername("john");
+        teamMember.setEmail("john@gmail.com");
+        teamMember.setPassword("john123");
+        teamMember.setRole(User.Role.TEAM_MEMBER);
     }
 
     @Test
-    void registerUser() throws SQLException {
-
+    void registerUser_shouldRegisterSuccessfully() throws SQLException {
         // Arrange
-        User user = new User();
-        user.setUsername("karan");
-
-        when(userDao.findByUsername("karan"))
-                .thenReturn(null);
-        when(userDao.insertUser(user))
-                .thenReturn(1);
+        when(userDao.findByUsername("john")).thenReturn(null);
+        when(userDao.findByEmail("john@gmail.com")).thenReturn(null);
+        when(userDao.insertUser(teamMember)).thenReturn(1);
 
         // Act
-        User result = service.registerUser(user);
+        User result = userService.registerUser(teamMember);
 
         // Assert
-        assertEquals(user, result);
-        verify(userDao).insertUser(user);
+        assertNotNull(result);
+        assertEquals("john", result.getUsername());
+        assertEquals(User.Role.TEAM_MEMBER, result.getRole());
+
+        verify(userDao).findByUsername("john");
+        verify(userDao).findByEmail("john@gmail.com");
+        verify(userDao).insertUser(teamMember);
     }
 
     @Test
-    void registerUserWhenUsernameExists() throws SQLException {
-
+    void registerUser_shouldRejectDuplicateUsername() throws SQLException {
         // Arrange
-        User user = new User();
-        user.setUsername("karan");
+        when(userDao.findByUsername("john")).thenReturn(teamMember);
 
-        when(userDao.findByUsername("karan"))
-                .thenReturn(user);
-
-        // Act & Assert
-        assertThrows(
+        // Act
+        ValidationException exception = assertThrows(
                 ValidationException.class,
-                () -> service.registerUser(user)
+                () -> userService.registerUser(teamMember)
         );
 
-        verify(userDao, never()).insertUser(any());
+        // Assert
+        assertEquals("Username already exists.", exception.getMessage());
+
+        verify(userDao).findByUsername("john");
+        verify(userDao, never()).insertUser(any(User.class));
     }
 
     @Test
-    void login() throws SQLException {
-
+    void login_shouldReturnUserForValidCredentials() throws SQLException {
         // Arrange
-        User user = new User();
-        user.setUsername("karan");
-        user.setPassword("1234");
-
-        when(userDao.findByUsername("karan"))
-                .thenReturn(user);
+        when(userDao.findByUsername("john")).thenReturn(teamMember);
 
         // Act
-        User result = service.login("karan", "1234");
+        User result = userService.login("john", "john123");
 
         // Assert
-        assertEquals(user, result);
-        verify(userDao).findByUsername("karan");
+        assertNotNull(result);
+        assertEquals(2, result.getId());
+        assertEquals("john", result.getUsername());
+
+        verify(userDao).findByUsername("john");
     }
 
     @Test
-    void loginWithInvalidPassword() throws SQLException {
-
+    void login_shouldRejectInvalidPassword() throws SQLException {
         // Arrange
-        User user = new User();
-        user.setUsername("karan");
-        user.setPassword("1234");
+        when(userDao.findByUsername("john")).thenReturn(teamMember);
 
-        when(userDao.findByUsername("karan"))
-                .thenReturn(user);
-
-        // Act & Assert
-        assertThrows(
+        // Act
+        ValidationException exception = assertThrows(
                 ValidationException.class,
-                () -> service.login("karan", "wrong")
+                () -> userService.login("john", "wrong")
         );
+
+        // Assert
+        assertEquals(
+                "Invalid username or password.",
+                exception.getMessage()
+        );
+
+        verify(userDao).findByUsername("john");
     }
 
     @Test
-    void getUserById() throws SQLException {
-
+    void getUserById_shouldReturnUser() throws SQLException {
         // Arrange
-        User user = new User();
-        user.setId(1);
-
-        when(userDao.findByUserId(1))
-                .thenReturn(user);
+        when(userDao.findByUserId(2)).thenReturn(teamMember);
 
         // Act
-        User result = service.getUserById(1);
+        User result = userService.getUserById(2);
 
         // Assert
-        assertEquals(1, result.getId());
-        verify(userDao).findByUserId(1);
+        assertNotNull(result);
+        assertEquals(2, result.getId());
+        assertEquals("john", result.getUsername());
+
+        verify(userDao).findByUserId(2);
     }
 
     @Test
-    void getAllUsers() throws SQLException {
-
+    void getUserById_shouldThrowWhenUserNotFound() throws SQLException {
         // Arrange
-        List<User> users = List.of(
-                new User(),
-                new User()
-        );
-
-        when(userDao.findAll())
-                .thenReturn(users);
+        when(userDao.findByUserId(99)).thenReturn(null);
 
         // Act
-        List<User> result = service.getAllUsers();
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> userService.getUserById(99)
+        );
 
         // Assert
+        assertEquals(
+                "User not found with id 99",
+                exception.getMessage()
+        );
+
+        verify(userDao).findByUserId(99);
+    }
+
+    @Test
+    void getAllUsers_shouldReturnUsersForAdmin() throws SQLException {
+        // Arrange
+        when(userDao.findAll()).thenReturn(List.of(admin, teamMember));
+
+        // Act
+        List<User> result = userService.getAllUsers(admin);
+
+        // Assert
+        assertNotNull(result);
         assertEquals(2, result.size());
+
         verify(userDao).findAll();
     }
 
     @Test
-    void searchUsers() throws SQLException {
-
+    void getAllUsers_shouldRejectNonAdmin() {
         // Arrange
-        List<User> users = List.of(new User());
-
-        when(userDao.searchByUserName("karan"))
-                .thenReturn(users);
+        User requestingUser = teamMember;
 
         // Act
-        List<User> result = service.searchUsers("karan");
-
-        // Assert
-        assertEquals(1, result.size());
-        verify(userDao).searchByUserName("karan");
-    }
-
-    @Test
-    void getUsersByRole() throws SQLException {
-
-        // Arrange
-        List<User> users = List.of(new User());
-
-        when(userDao.findByUserRole(User.Role.ADMIN))
-                .thenReturn(users);
-
-        // Act
-        List<User> result =
-                service.getUsersByRole(User.Role.ADMIN);
-
-        // Assert
-        assertEquals(1, result.size());
-        verify(userDao).findByUserRole(User.Role.ADMIN);
-    }
-
-    @Test
-    void updateUser() throws SQLException {
-
-        // Arrange
-        User user = new User();
-        user.setId(1);
-
-        when(userDao.updateUser(user))
-                .thenReturn(1);
-
-        // Act
-        service.updateUser(user);
-
-        // Assert
-        verify(userDao).updateUser(user);
-    }
-
-    @Test
-    void changeRole() throws SQLException {
-
-        // Arrange
-        User admin = new User();
-        admin.setId(1);
-        admin.setRole(User.Role.ADMIN);
-
-        User target = new User();
-        target.setId(2);
-        target.setRole(User.Role.TEAM_MEMBER);
-
-        when(userDao.findByUserId(2))
-                .thenReturn(target);
-
-        // Act
-        service.changeRole(
-                2,
-                User.Role.TEAM_LEAD,
-                admin
+        UnauthorizedException exception = assertThrows(
+                UnauthorizedException.class,
+                () -> userService.getAllUsers(requestingUser)
         );
 
         // Assert
-        assertEquals(User.Role.TEAM_LEAD, target.getRole());
-        verify(userDao).updateUser(target);
-    }
-
-    @Test
-    void changeRoleUnauthorized() throws SQLException {
-
-        // Arrange
-        User employee = new User();
-        employee.setRole(User.Role.TEAM_MEMBER);
-
-        // Act & Assert
-        assertThrows(
-                UnauthorizedException.class,
-                () -> service.changeRole(
-                        2,
-                        User.Role.ADMIN,
-                        employee
-                )
+        assertEquals(
+                "Only ADMIN can perform this operation.",
+                exception.getMessage()
         );
 
         verifyNoInteractions(userDao);
     }
 
     @Test
-    void deleteUser() throws SQLException {
-
+    void updateProfile_shouldUpdateSuccessfully() throws SQLException {
         // Arrange
-        User admin = new User();
-        admin.setId(1);
-        admin.setRole(User.Role.ADMIN);
-
-        when(userDao.deleteUser(2))
-                .thenReturn(1);
+        when(userDao.updateProfile(teamMember)).thenReturn(1);
 
         // Act
-        service.deleteUser(2, admin);
+        userService.updateProfile(teamMember, teamMember);
 
         // Assert
+        verify(userDao).updateProfile(teamMember);
+    }
+
+    @Test
+    void changeRole_shouldChangeRoleForAdmin() throws SQLException {
+        // Arrange
+        when(userDao.findByUserId(2)).thenReturn(teamMember);
+        when(userDao.updateRole(2, User.Role.TEAM_LEAD)).thenReturn(1);
+
+        // Act
+        userService.changeRole(
+                2,
+                User.Role.TEAM_LEAD,
+                admin
+        );
+
+        // Assert
+        verify(userDao).findByUserId(2);
+        verify(userDao).updateRole(2, User.Role.TEAM_LEAD);
+    }
+
+    @Test
+    void deleteUser_shouldDeleteSuccessfully() throws SQLException {
+        // Arrange
+        when(userDao.findByUserId(2)).thenReturn(teamMember);
+        when(userDao.deleteUser(2)).thenReturn(1);
+
+        // Act
+        userService.deleteUser(2, admin);
+
+        // Assert
+        verify(userDao).findByUserId(2);
         verify(userDao).deleteUser(2);
     }
 
     @Test
-    void deleteUserUnauthorized() throws SQLException {
-
+    void deleteUser_shouldRejectNonAdmin() {
         // Arrange
-        User employee = new User();
-        employee.setRole(User.Role.TEAM_MEMBER);
+        User requestingUser = teamMember;
 
-        // Act & Assert
-        assertThrows(
+        // Act
+        UnauthorizedException exception = assertThrows(
                 UnauthorizedException.class,
-                () -> service.deleteUser(2, employee)
+                () -> userService.deleteUser(2, requestingUser)
+        );
+
+        // Assert
+        assertEquals(
+                "Only ADMIN can perform this operation.",
+                exception.getMessage()
         );
 
         verifyNoInteractions(userDao);

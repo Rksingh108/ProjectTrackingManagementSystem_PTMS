@@ -13,8 +13,12 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
+import java.util.logging.Logger;
 
 public class TicketController {
+
+    private static final Logger logger =
+            Logger.getLogger(TicketController.class.getName());
 
     private final TicketService ticketService;
     private final Scanner scanner;
@@ -24,9 +28,7 @@ public class TicketController {
         this.scanner = new Scanner(System.in);
     }
 
-    public TicketController(
-            TicketService ticketService,
-            Scanner scanner) {
+    public TicketController(TicketService ticketService, Scanner scanner) {
         this.ticketService = ticketService;
         this.scanner = scanner;
     }
@@ -35,67 +37,76 @@ public class TicketController {
         boolean running = true;
 
         while (running) {
-            showDashboard();
-
+            printMenu(loggedInUser);
             String choice = scanner.nextLine().trim();
 
             try {
                 switch (choice) {
-                    case "1":
-                        createTicket(loggedInUser);
-                        break;
-                    case "2":
-                        viewTicketsForProject();
-                        break;
-                    case "3":
-                        viewMyTickets(loggedInUser);
-                        break;
-                    case "4":
-                        assignTicket(loggedInUser);
-                        break;
-                    case "5":
-                        advanceStatus(loggedInUser);
-                        break;
-                    case "6":
-                        deleteTicket(loggedInUser);
-                        break;
-                    case "7":
-                        viewTicket();
-                        break;
-                    case "0":
+                    case "1" -> createTicket(loggedInUser);
+                    case "2" -> viewTicketsForProject(loggedInUser);
+                    case "3" -> viewMyTickets(loggedInUser);
+                    case "4" -> assignTicket(loggedInUser);
+                    case "5" -> advanceStatus(loggedInUser);
+                    case "6" -> deleteTicket(loggedInUser);
+                    case "7" -> viewTicket(loggedInUser);
+                    case "0" -> {
                         running = false;
-                        break;
-                    default:
-                        System.out.println("Invalid option.");
+                        logger.info("Returning to previous menu.");
+                    }
+                    default -> logger.warning("Invalid option.");
                 }
-            } catch (UnauthorizedException |
-                     ValidationException |
-                     ResourceNotFoundException e) {
+            } catch (UnauthorizedException | ValidationException | ResourceNotFoundException e) {
+                logger.warning("Ticket operation failed: " + e.getMessage());
                 System.out.println("Error: " + e.getMessage());
             } catch (SQLException e) {
+                logger.severe("Database error: " + e.getMessage());
                 System.out.println("Database error: " + e.getMessage());
             } catch (NumberFormatException e) {
+                logger.warning("Invalid numeric input.");
                 System.out.println("Please enter a valid number.");
             } catch (DateTimeParseException e) {
-                System.out.println("Invalid date. Use YYYY-MM-DD.");
+                logger.warning("Invalid date format.");
+                System.out.println("Use date format YYYY-MM-DD.");
             }
         }
     }
 
-    private void showDashboard() {
+    private void printMenu(User user) {
         System.out.println();
-        System.out.println("==============================");
-        System.out.println("       TICKET MANAGEMENT");
-        System.out.println("==============================");
+        System.out.println("========== TICKET MANAGEMENT ==========");
+        System.out.println("Logged in as: " + user.getUsername() +
+                " | Role: " + user.getRole());
+        System.out.println();
+
+        switch (user.getRole()) {
+            case ADMIN -> {
+                System.out.println("1. Create Ticket");
+                System.out.println("2. View Project Tickets");
+                System.out.println("3. View My Tickets");
+                System.out.println("4. Assign Ticket");
+                System.out.println("5. Update Ticket Status");
+                System.out.println("6. Delete Ticket");
+                System.out.println("7. View Ticket By ID");
+            }
+
+            case PROJECT_MANAGER, TEAM_LEAD -> {
+                System.out.println("1. Create Ticket");
+                System.out.println("2. View Project Tickets");
+                System.out.println("3. View My Tickets");
+                System.out.println("4. Assign Ticket");
+                System.out.println("5. Update Ticket Status");
+                System.out.println("7. View Ticket By ID");
+            }
+
+            case TEAM_MEMBER -> {
+                System.out.println("2. View Project Tickets");
+                System.out.println("3. View My Tickets");
+                System.out.println("5. Update Ticket Status");
+                System.out.println("7. View Ticket By ID");
+            }
+        }
+
         System.out.println("0. Back");
-        System.out.println("1. Create Ticket");
-        System.out.println("2. View Project Tickets");
-        System.out.println("3. View My Tickets");
-        System.out.println("4. Assign Ticket");
-        System.out.println("5. Update Ticket Status");
-        System.out.println("6. Delete Ticket");
-        System.out.println("7. View Ticket By ID");
-        System.out.println("==============================");
         System.out.print("Choose an option: ");
     }
 
@@ -114,11 +125,9 @@ public class TicketController {
         System.out.print("Deadline (YYYY-MM-DD, blank to skip): ");
         String deadlineInput = scanner.nextLine().trim();
 
-        LocalDate deadline = null;
-
-        if (!deadlineInput.isEmpty()) {
-            deadline = LocalDate.parse(deadlineInput);
-        }
+        LocalDate deadline = deadlineInput.isEmpty()
+                ? null
+                : LocalDate.parse(deadlineInput);
 
         Ticket ticket = new Ticket(
                 projectId,
@@ -131,12 +140,11 @@ public class TicketController {
 
         ticketService.createTicket(ticket, requestingUser);
 
-        System.out.println(
-                "Ticket created successfully. ID: " + ticket.getId()
-        );
+        logger.info("Ticket created successfully. ID: " + ticket.getId());
+        System.out.println("Ticket created successfully. ID: " + ticket.getId());
     }
 
-    private void viewTicketsForProject() throws SQLException {
+    private void viewTicketsForProject(User requestingUser) throws SQLException {
         int projectId = readInt("Project ID: ");
 
         List<Ticket> tickets =
@@ -146,9 +154,6 @@ public class TicketController {
             System.out.println("No tickets found.");
             return;
         }
-
-        System.out.println();
-        System.out.println("========== PROJECT TICKETS ==========");
 
         tickets.forEach(this::printTicket);
     }
@@ -162,13 +167,10 @@ public class TicketController {
             return;
         }
 
-        System.out.println();
-        System.out.println("========== MY TICKETS ==========");
-
         tickets.forEach(this::printTicket);
     }
 
-    private void viewTicket() throws SQLException {
+    private void viewTicket(User requestingUser) throws SQLException {
         int ticketId = readInt("Ticket ID: ");
 
         Ticket ticket = ticketService.getTicketById(ticketId);
@@ -186,6 +188,7 @@ public class TicketController {
                 requestingUser
         );
 
+        logger.info("Ticket assigned successfully.");
         System.out.println("Ticket assigned successfully.");
     }
 
@@ -193,29 +196,20 @@ public class TicketController {
         int ticketId = readInt("Ticket ID: ");
 
         System.out.println();
-        System.out.println("New Status:");
+        System.out.println("========== UPDATE STATUS ==========");
         System.out.println("1. IN_PROGRESS");
         System.out.println("2. IMPLEMENTED");
         System.out.println("3. COMPLETED");
         System.out.print("Choose status: ");
 
-        String statusChoice = scanner.nextLine().trim();
+        String choice = scanner.nextLine().trim();
 
-        String newStatus;
-
-        switch (statusChoice) {
-            case "1":
-                newStatus = "IN_PROGRESS";
-                break;
-            case "2":
-                newStatus = "IMPLEMENTED";
-                break;
-            case "3":
-                newStatus = "COMPLETED";
-                break;
-            default:
-                throw new ValidationException("Invalid status.");
-        }
+        String newStatus = switch (choice) {
+            case "1" -> "IN_PROGRESS";
+            case "2" -> "IMPLEMENTED";
+            case "3" -> "COMPLETED";
+            default -> throw new ValidationException("Invalid status.");
+        };
 
         int progress = readInt("Progress (0-100): ");
 
@@ -230,30 +224,35 @@ public class TicketController {
                 requestingUser
         );
 
+        logger.info("Ticket status updated successfully.");
         System.out.println("Ticket status updated successfully.");
     }
 
     private void deleteTicket(User requestingUser) throws SQLException {
         int ticketId = readInt("Ticket ID to delete: ");
 
-        ticketService.deleteTicket(
-                ticketId,
-                requestingUser
-        );
+        System.out.print("Confirm deletion (Y/N): ");
+        String confirmation = scanner.nextLine().trim();
 
+        if (!confirmation.equalsIgnoreCase("Y")) {
+            System.out.println("Deletion cancelled.");
+            return;
+        }
+
+        ticketService.deleteTicket(ticketId, requestingUser);
+
+        logger.info("Ticket deleted successfully.");
         System.out.println("Ticket deleted successfully.");
     }
 
     private int readInt(String message) {
         System.out.print(message);
-        String input = scanner.nextLine().trim();
-
-        return Integer.parseInt(input);
+        return Integer.parseInt(scanner.nextLine().trim());
     }
 
     private void printTicket(Ticket ticket) {
         System.out.println();
-        System.out.println("----------------------------------------");
+        System.out.println("--------------------------------");
         System.out.println("Ticket ID     : " + ticket.getId());
         System.out.println("Project ID    : " + ticket.getProjectId());
         System.out.println("Title         : " + ticket.getTitle());
@@ -263,6 +262,6 @@ public class TicketController {
         System.out.println("Assigned To   : " + ticket.getAssignedTo());
         System.out.println("Deadline      : " + ticket.getDeadline());
         System.out.println("Created At    : " + ticket.getCreatedAt());
-        System.out.println("----------------------------------------");
+        System.out.println("--------------------------------");
     }
 }
